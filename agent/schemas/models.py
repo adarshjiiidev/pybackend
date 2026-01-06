@@ -5,12 +5,13 @@ class FinancialQuery(BaseModel):
     """
     Structured representation of the user's financial query.
     """
-    tickers: List[str] = Field(description="List of stock tickers (e.g., AAPL).")
-    intent: Literal["market_data", "comparative_analysis", "general_chat"] = Field(
-        description="Type of query: 'market_data' for ticker stats, 'comparative_analysis' for comparisons, 'general_chat' for non-financial or general knowledge."
+    tickers: List[str] = Field(description="List of stock tickers (e.g., AAPL, TCS.NS, NIFTY).")
+    intent: Literal["market_data", "comparative_analysis", "general_chat", "options_trading"] = Field(
+        description="Type of query: 'market_data' for ticker stats, 'comparative_analysis' for comparisons, 'general_chat' for non-financial, 'options_trading' for LTP Calculator/option chain analysis."
     )
     timeframe: str = Field(description="Timeframe for the query e.g., '1y', 'ytd', '1mo'. Default to '1y' if unspecified.")
     original_query: str = Field(description="The original natural language query from the user.")
+    language: str = Field(default="english", description="Detected language: 'english' or 'hindi'")
 
 class MarketMetrics(BaseModel):
     """

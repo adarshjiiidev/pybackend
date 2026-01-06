@@ -13,9 +13,10 @@ def generate_response(state: AgentState):
     if not analysis:
         return {"final_response": "I could not generate an analysis."}
     
-    # Logic to bypass strict structure for general chat
+    # Logic to bypass strict structure for general chat and options trading
     query = state.get('parsed_query')
-    if query and query.intent == "general_chat":
+    if query and query.intent in ["general_chat", "options_trading"]:
+        # Return raw text for these intents
         return {"final_response": analysis.get('text', '')}
 
     llm = get_llm(temperature=0)

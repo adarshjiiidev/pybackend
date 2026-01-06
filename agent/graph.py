@@ -13,14 +13,18 @@ from agent.nodes.response_generation import generate_response
 def route_query(state: AgentState) -> Literal["fetch", "reason"]:
     """
     Conditional logic to determine the path after planning.
+    - general_chat and options_trading: Skip data fetch (use knowledge)
+    - market_data and comparative_analysis: Fetch yfinance data
     """
     query = state.get('parsed_query')
     if not query:
-        return "fetch" # Default fallback
+        return "fetch"
         
-    if query.intent == "general_chat":
+    # Skip data fetch for general chat and options trading
+    if query.intent in ["general_chat", "options_trading"]:
         return "reason"
     
+    # market_data and comparative_analysis need yfinance
     return "fetch"
 
 def build_graph():

@@ -19,15 +19,35 @@ def parse_input(state: AgentState):
     parser = JsonOutputParser(pydantic_object=FinancialQuery)
     
     prompt = PromptTemplate(
-        template="""You are a financial AI assistant specialized in the INDIAN STOCK MARKET. Extract tickers, intent, and timeframe.
+        template="""You are Daddy's AI - a multi-layer financial assistant for INDIAN STOCK MARKET. 
+        
+        Extract tickers, intent, timeframe, and language from the query.
         
         {format_instructions}
         
-        Rules:
-        1. If the query implies INDIAN stocks (e.g. "Reliance", "Tata Motors", "HDFC"), prefer adding ".NS" suffix for NSE (e.g., "RELIANCE.NS").
-        2. If the user asks for US stocks, use standard tickers (e.g. "AAPL").
-        3. If the query is a greeting ("hi") or general question ("what is quantum computing"), set intent to "general_chat" and tickers to [].
-        4. "market_data" is for price, volume, financials. "comparative_analysis" is for comparing two entities.
+        INTENT DETECTION RULES:
+        
+        1. "options_trading" - Use this for queries about:
+           - LTP Calculator, WTB, WTT, EOR, EOS, strike price, scenario
+           - Option chain, OI (open interest), COA, gamma blast, IV
+           - Put/Call options, premium, theta, delta, expiry
+           - Hindi terms like "scenario kya hai", "support resistance"
+        
+        2. "market_data" - For price, volume, financials of specific stocks
+        
+        3. "comparative_analysis" - For comparing two or more companies
+        
+        4. "general_chat" - For greetings or non-financial questions
+        
+        LANGUAGE DETECTION:
+        - Set language="hindi" if query contains Hindi/Hinglish words
+        - Set language="english" otherwise
+        
+        TICKER RULES:
+        - For INDIAN stocks (Reliance, TCS, Infosys), add ".NS" suffix
+        - For options queries, use "NIFTY" or "BANKNIFTY" if applicable
+        - For US stocks, use standard tickers (AAPL, MSFT)
+        - For general questions, use empty tickers []
         
         User Query: {query}
         """,
