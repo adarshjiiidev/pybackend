@@ -1,0 +1,12 @@
+google-generativeai
+langchain
+langgraph
+langchain-google-genai
+langchain-community
+pinecone
+yfinance
+pandas
+pydantic
+python-dotenv
+langchain-openai
+g4f
