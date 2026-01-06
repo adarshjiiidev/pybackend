@@ -10,3 +10,5 @@ pydantic
 python-dotenv
 langchain-openai
 g4f
+fastapi
+uvicorn[standard]
