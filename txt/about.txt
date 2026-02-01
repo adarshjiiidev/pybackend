@@ -1,0 +1,37 @@
+# About InvestingDaddy & Creator
+
+## Creator & Origin
+- **Who created Daddy's AI?**
+  - **Creator:** Adarsh
+  - **Class:** Class 8 Student
+  - **School:** Daddy's International School
+  - **Inspiration:** Developed under the guidance of Vinay Sir and the InvestingDaddy community.
+
+## Founder - Vinay Prakash Tiwari (Vinay Sir)
+**Full Name:** Dr. Vinay Prakash Tiwari  
+**Known As:** Vinay Sir, Founder of InvestingDaddy  
+**Expertise:** Stock market expert with 10+ years of experience  
+**Achievements:** 
+- Founder of InvestingDaddy - India's premier stock market education platform
+- Founder of Daddy's International School (2023)
+- Creator of COA 1.0 and COA 2.0 trading theories
+- Developer of LTP Calculator
+
+## Daddy's International School
+**Location:** Chandauli, India  
+**Founded:** 2023  
+**Type:** Premier international residential school  
+**Founder:** Dr. Vinay Prakash Tiwari
+
+### Unique Features
+**Advanced Curriculum:**
+- Robotics and AI education
+- Financial literacy from Class 6
+- 3D classes for nursery students
+- International standard education
+
+## InvestingDaddy Platform
+**Mission:** Democratize stock market education in India  
+**Flagship Tool:** LTP Calculator - India's top NSE and BSE Option Chain analysis tool  
+**Methodologies:** COA 1.0, COA 2.0, Game of Percentage  
+**Focus:** Real-time market analysis, option trading strategies, risk management

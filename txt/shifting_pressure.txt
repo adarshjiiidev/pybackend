@@ -1,0 +1,98 @@
+# Shifting Pressure & Rules
+
+## What is Shifting?
+
+**Definition:** When the **Second Highest** value (OI or Volume) becomes the **Highest** value at a new strike price.
+
+**Simple:** The "Boss" (Support/Resistance) moves to a new house.
+
+**Sheesh Aasan Analogy:**
+- The biggest group of people PUSHING moved to a new spot.
+
+## The 4 Golden Rules of Shifting
+
+### 1. Shift to TOP Side = BULLISH (Bull Control)
+
+**Action:** Support or Resistance moves from a smaller number to a larger number.
+**Analogy:** Pushing group moved UP (towards Head). Market follows them.
+
+**Example:**
+- Resistance shifts from 17500 → 17550
+- Support shifts from 17400 → 17450
+
+**Result:** Market goes UP.
+
+### 2. Shift to BOTTOM Side = BEARISH (Bear Control)
+
+**Action:** Support or Resistance moves from a larger number to a smaller number.
+**Analogy:** Pushing group moved DOWN (towards Legs). Market follows them.
+
+**Example:**
+- Resistance shifts from 17600 → 17550
+- Support shifts from 17500 → 17450
+
+**Result:** Market goes DOWN.
+
+### 3. Shift & Strong = CONFIRMED Trend
+
+**Scenario:** Shifting happens AND the new level becomes **Strong**.
+**Result:** Very clear trend signal.
+
+- **Bottom Shift + Strong = Clear BEARISH** (Market will fall)
+- **Top Shift + Strong = Clear BULLISH** (Market will rise)
+
+### 4. Shift & Reverse (Wapas Shift) = Pressure REVERSES
+
+**Scenario:** It shifted, but then shifted back to the original place.
+**Result:** The pressure FLIPS immediately.
+
+- **Bearish to Bullish Example:**
+  1. Shift Bottom (17500 → 17450) [Bearish]
+  2. Shift BACK (17450 → 17500) [Now Bullish!]
+
+## Shifting Combination Scenarios
+
+### 1. Bull Run Scenario
+**Conditions:** 
+1. Resistance shifts TOP (or is WTT)
+2. Support shifts TOP (or is WTT)
+3. OR Shifted Top and shows WTT *again*
+
+**Result:** Market keeps breaking resistance levels.
+
+### 2. Blood Bath Scenario
+**Conditions:**
+1. Resistance shifts BOTTOM (or is WTB)
+2. Support shifts BOTTOM (or is WTB)
+3. OR Shifted Bottom and shows WTB *again*
+
+**Result:** Market keeps breaking support levels.
+
+## Natural Weakness Exception (The "Ghost" Rule)
+
+**Concept:** When the "Boss" moves house, some luggage is left behind at the old house.
+
+**Rule:** 
+If shifting moves FROM 17500 TO 17550:
+- The leftover OI/Volume at 17500 might look like WTB/WTT.
+- This is **NATURAL WEAKNESS**.
+- **IGNORE IT.** Do not treat it as a new trade signal.
+
+**Example:**
+1. Resistance at 17500.
+2. Shifts to 17550.
+3. Now 17500 shows "WTB" (Weakness towards bottom).
+4. **Conclusion:** Ignore. It's just the leftover crowd leaving.
+
+
+
+## Summary Checklist
+
+| Action | Direction | Meaning |
+|--------|-----------|---------|
+| Shift Top | UP ↑ | Bullish |
+| Shift Bottom | DOWN ↓ | Bearish |
+| Shift Top + Strong | UP ↑↑ | Confirmed Bullish |
+| Shift Bottom + Strong | DOWN ↓↓ | Confirmed Bearish |
+| Shift Top + WTT again | UP ↑↑↑ | Bull Run |
+| Shift Bottom + WTB again | DOWN ↓↓↓ | Blood Bath |

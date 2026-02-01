@@ -1,0 +1,54 @@
+# COA 2.0 - Direction from OI Change
+
+## What is COA 2.0?
+
+**Definition:** Predicting market direction using **OI Change** (Open Interest Change).
+**Usage:** Used primarily at **Diversion** points (EOR/EOS) to confirm reversal.
+
+## The 6 Basic Rules
+
+### 1. Bearish Signals (Market Down)
+- **Call OI Change Increasing (↑)** AND **Put OI Change Decreasing (↓)** = **Blood Bath** (Strong Sell)
+- **Call OI Change Increasing (↑)** AND **Put OI Change Stable** = **Bearish**
+- **Call OI Change Stable** AND **Put OI Change Decreasing (↓)** = **Bearish**
+- **Put OI Change Decreasing (↓)** = Generally Bearish (Support leaving)
+
+### 2. Bullish Signals (Market Up)
+- **Call OI Change Decreasing (↓)** AND **Put OI Change Increasing (↑)** = **Bull Run** (Strong Buy)
+- **Call OI Change Decreasing (↓)** AND **Put OI Change Stable** = **Bullish**
+- **Call OI Change Stable** AND **Put OI Change Increasing (↑)** = **Bullish**
+- **Call OI Change Decreasing (↓)** = Generally Bullish (Resistance leaving)
+
+### 3. Range Bound / Unknown Signals
+- **Both Stable:** Range Bound (Safety)
+- **Both Increasing:** Range Bound (Fighting)
+- **Both Decreasing:** Unpredictable (COA 2.0 fails here)
+
+## Detailed Scenarios Table
+
+| Call OI Change | Put OI Change | Market Direction |
+|---|---|---|
+| Increasing ↑ | Decreasing ↓ | **Blood Bath (Strong Down)** |
+| Decreasing ↓ | Increasing ↑ | **Bull Run (Strong Up)** |
+| Increasing ↑ | Stable | Bearish |
+| Stable | Decreasing ↓ | Bearish |
+| Decreasing ↓ | Stable | Bullish |
+| Stable | Increasing ↑ | Bullish |
+| Stable | Stable | Range Bound (Reversal from EOR/EOS) |
+| Increasing ↑ | Increasing ↑ | Range Bound |
+| Decreasing ↓ | Decreasing ↓ | **Unpredictable** (Avoid trade) |
+
+## When to use COA 2.0?
+
+1. **At Diversion Points:** When market hits EOR, EOS, EOR+1, or EOS-1.
+2. **Confirmation:** Before taking a trade, check COA 2.0.
+   - Example: Market at EOR (Resistance). You want to sell PE (Bullish trade? No, Sell CE or Buy Put).
+   - *Correction:* At EOR we sell Call (Bearish trade).
+   - Check COA 2.0: If Call OI Change is Increasing (Writers adding positions), it CONFIRMS the resistance. Safe to trade.
+
+3. **During SOC:** If market is confused by OI, check trends in OI Change.
+
+## Simple Logic:
+- **Call Writers (Call OI Change) = Bears.** If they increase, Market falls.
+- **Put Writers (Put OI Change) = Bulls.** If they increase, Market rises.
+- **If Writers LEAVE (Decrease) = Opposite side wins.** (Call writers leave = Bulls win).

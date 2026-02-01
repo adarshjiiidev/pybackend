@@ -1,0 +1,51 @@
+# State of Confusion (SOC) - Complete Guide
+
+## Definition
+**State of Confusion (SOC)** occurs when the market (Support/Resistance) cannot decide on a clear direction due to conflicting signals or stalled percentage changes.
+
+**Simple Term:** The "Tug of War" where neither side is winning for a long time.
+
+## SOC Rules by Duration
+
+### 1. The 1-Hour Rule (Minor Confusion)
+- **Condition:** Market or Percentage stuck for ~1 hour.
+- **Scenario:** One side is Strong, the other side shows WTB/WTT but the percentage is stuck (e.g., oscillating 3-4%).
+- **Implication:** Market is drifting. It usually moves towards the side of weakness involved.
+- **Action:** Wait for clarity.
+
+### 2. The 2-Hour Rule (Medium Confusion)
+- **Condition:** Market stuck for ~2 hours.
+- **Scenario:** Percentage stuck with slightly wider variance (7-8%).
+- **Implication:** Confusion is deepening. Market participants are unsure.
+- **Action:** Risky to trade.
+
+### 3. The 3-Hour Rule (Total Confusion)
+- **Condition:** Market stuck for 3+ hours.
+- **Scenario:** Percentage stuck with wide variance (10-12%).
+- **Implication:** High Unpredictability.
+- **Result:** Market becomes purely Range Bound or does a sudden random breakout.
+- **Action:** **NO TRADING ZONE.** Avoid entries.
+
+## How to Identify SOC in LTP Calculator?
+1. **Conflicting Pressures:** WTT increasing on one side, WTB increasing on the other (Scenario 8/9 conditions).
+2. **Stalled Shifting:** A level looks like it wants to shift (e.g., 85%) but stays at 85% for hours without completing the shift.
+3. **Both Sides Weak:** Volatility creates confusion.
+
+## SOC vs Consolidation
+- **Consolidation:** Market resting before a move (orderly).
+- **SOC:** Market fighting itself (disorderly/messy).
+
+## Trading Strategy in SOC (The "Opposite Side" Rule)
+- **Best Strategy:** Trade from the **Opposite Side** of the confusion.
+- **Logic:**
+  - If Confusion is at **RESISTANCE** (Call side messy):
+    - **Safe Entry:** Buy **CALL** from **SUPPORT** (Bottom).
+    - **Why:** Market won't break Resistance easily, but Support is clear.
+  - If Confusion is at **SUPPORT** (Put side messy):
+    - **Safe Entry:** Buy **PUT** from **RESISTANCE** (Top).
+    - **Why:** Support is messy, so sell from top (Resistance).
+
+- **Summary:**
+  - **Confusion at Top?** → Buy from Bottom (Call from Support).
+  - **Confusion at Bottom?** → Buy from Top (Put from Resistance).
+  - **Both Confused?** → **NO TRADING**.

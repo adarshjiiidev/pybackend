@@ -1,0 +1,171 @@
+# Technical Analysis Concepts
+
+## Moving Averages
+
+### Simple Moving Average (SMA)
+- Average price over N periods
+- Equal weight to all periods
+- Common periods: 20, 50, 100, 200
+
+### Exponential Moving Average (EMA)
+- More weight to recent prices
+- Responds faster to price changes
+- Popular in day trading
+
+### Key Signals
+- **Golden Cross**: 50 SMA crosses above 200 SMA (Bullish)
+- **Death Cross**: 50 SMA crosses below 200 SMA (Bearish)
+- Price above MA = Bullish
+- Price below MA = Bearish
+
+## Momentum Indicators
+
+### RSI (Relative Strength Index)
+- Measures overbought/oversold conditions
+- Range: 0-100
+- **> 70**: Overbought (potential reversal down)
+- **< 30**: Oversold (potential reversal up)
+- Best with divergence confirmation
+
+### MACD (Moving Average Convergence Divergence)
+- MACD line = 12 EMA - 26 EMA
+- Signal line = 9 EMA of MACD
+- Histogram = MACD - Signal
+- **Bullish**: MACD crosses above signal
+- **Bearish**: MACD crosses below signal
+
+### Stochastic Oscillator
+- Compares closing price to price range
+- Range: 0-100
+- **> 80**: Overbought
+- **< 20**: Oversold
+- Use %K and %D crossovers
+
+## Volume Indicators
+
+### Volume Profile
+- Shows volume traded at each price level
+- High volume areas = Support/Resistance
+- Point of Control (POC) = Highest volume level
+
+### OBV (On-Balance Volume)
+- Running total of volume
+- Rising OBV = Buying pressure
+- Falling OBV = Selling pressure
+- Divergence signals trend change
+
+### VWAP (Volume Weighted Average Price)
+- Average price weighted by volume
+- Used for intraday trading
+- Price above VWAP = Bullish
+- Price below VWAP = Bearish
+
+## Chart Patterns
+
+### Reversal Patterns
+
+**Head and Shoulders**
+- Three peaks, middle highest
+- Bearish reversal pattern
+- Neckline break confirms pattern
+
+**Inverse Head and Shoulders**
+- Three troughs, middle lowest
+- Bullish reversal pattern
+
+**Double Top/Bottom**
+- Two similar highs/lows
+- Reversal patterns
+- Break of support/resistance confirms
+
+### Continuation Patterns
+
+**Flags and Pennants**
+- Brief consolidation in trend
+- Breakout continues original trend
+
+**Triangles** (Ascending, Descending, Symmetrical)
+- Converging trendlines
+- Breakout direction varies
+
+**Rectangles**
+- Horizontal support and resistance
+- Consolidation before continuation
+
+## Support and Resistance
+
+### Identification
+- Previous highs/lows
+- Psychological levels (round numbers)
+- Fibonacci retracement levels
+- Pivot points
+
+### Characteristics
+- **Multiple touches** = Stronger level
+- **Volume** at level confirms strength
+- **Broken support becomes resistance** (vice versa)
+
+### Fibonacci Retracement
+Key levels: 23.6%, 38.2%, 50%, 61.8%, 78.6%
+- Used to find support in uptrend
+- Used to find resistance in downtrend
+
+## Candlestick Patterns
+
+### Bullish Patterns
+- **Hammer**: Long lower wick, small body
+- **Bullish Engulfing**: Large green candle engulfs previous red
+- **Morning Star**: 3-candle reversal pattern
+- **Piercing Pattern**: Green candle closes above midpoint of previous red
+
+### Bearish Patterns
+- **Shooting Star**: Long upper wick, small body
+- **Bearish Engulfing**: Large red candle engulfs previous green
+- **Evening Star**: 3-candle reversal pattern
+- **Dark Cloud Cover**: Red candle closes below midpoint of previous green
+
+### Indecision Patterns
+- **Doji**: Open = Close (or very close)
+- **Spinning Top**: Small body, long wicks both sides
+
+## Trend Analysis
+
+### Trend Identification
+- **Uptrend**: Higher highs + Higher lows
+- **Downtrend**: Lower highs + Lower lows
+- **Sideways**: Horizontal movement
+
+### Trendlines
+- Connect swing lows in uptrend
+- Connect swing highs in downtrend
+- Minimum 2 touches to draw
+- 3rd touch validates trendline
+
+### Channels
+- Parallel lines containing price action
+- Trade within channel boundaries
+- Breakout signals trend change
+
+## Volatility Indicators
+
+### Bollinger Bands
+- Middle: 20 SMA
+- Upper/Lower: ±2 standard deviations
+- **Squeeze**: Low volatility, breakout imminent
+- **Expansion**: High volatility
+- Price touching bands = Potential reversal
+
+### ATR (Average True Range)
+- Measures volatility
+- Higher ATR = Higher volatility
+- Used for stop loss placement
+- Not directional
+
+## Best Practices
+
+1. **Confluence**: Use multiple indicators
+2. **Time Frames**: Check higher time frame for trend
+3. **Risk Management**: Always use stop losses
+4. **Backtesting**: Test strategies before live trading
+5. **Keep Learning**: Markets evolve, strategies must adapt
+6. **Psychology**: Discipline > Indicators

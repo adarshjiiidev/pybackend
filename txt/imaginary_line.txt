@@ -1,0 +1,148 @@
+# Imaginary Line - The Dividing Line
+
+## What is Imaginary Line?
+
+**Definition:** The line that separates IN THE MONEY (ITM) from OUT OF THE MONEY (OTM) options
+
+**Hindi:** Ek aisi line jo IN THE MONEY ko OUT OF THE MONEY se alag karti hai
+
+## Visual Representation
+
+```
+CALL SIDE (Resistance/Head/Top):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+17600 ← OUT OF THE MONEY (Bahar)
+17550 ← OUT OF THE MONEY (Bahar)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      IMAGINARY LINE ~ 17500
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+17500 ← IN THE MONEY (Ander)
+17450 ← IN THE MONEY (Ander)
+17400 ← IN THE MONEY (Ander)
+
+PUT SIDE (Support/Legs/Bottom):
+17450 ← IN THE MONEY (Ander)
+17400 ← IN THE MONEY (Ander)
+17350 ← IN THE MONEY (Ander)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      IMAGINARY LINE ~ 17500
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+17500 ← OUT OF THE MONEY (Bahar)
+17550 ← OUT OF THE MONEY (Bahar)
+17600 ← OUT OF THE MONEY (Bahar)
+```
+
+## Key Concepts
+
+### In The Money (ITM) - Ander Ki Taraf
+
+**Call Side:** Smaller strike prices than imaginary line are ITM  
+**Put Side:** Larger strike prices than imaginary line are ITM
+
+**Example:**
+If imaginary line is at 17500:
+- Calls: 17450, 17400, 17350 are ITM (smaller = ander)
+- Puts: 17550, 17600, 17650 are ITM (larger = ander)
+
+### Out Of The Money (OTM) - Bahar Ki Taraf
+
+**Call Side:** Larger strike prices than imaginary line are OTM  
+**Put Side:** Smaller strike prices than imaginary line are OTM
+
+**Example:**
+If imaginary line is at 17500:
+- Calls: 17550, 17600, 17650 are OTM (larger = bahar)
+- Puts: 17450, 17400, 17350 are OTM (smaller = bahar)
+
+## Why Imaginary Line Matters
+
+### For Support and Resistance Identification
+
+**Rule 1:** Support/Resistance must be closest to imaginary line  
+**Rule 2:** We only consider OI/Volume near the imaginary line  
+**Rule 3:** Support is on PUT side, Resistance is on CALL side
+
+**Example:**
+```
+Current Market: 17485 (Imaginary Line)
+
+Put Side OI:
+17500 - 10 Lakh ← Closest to line (15 points away)
+17450 - 8 Lakh  ← Further from line
+17400 - 12 Lakh ← Too far from line
+
+Support = 17500 ✓ (closest to imaginary line)
+```
+
+### For Weakness Detection (WTB/WTT)
+
+**Rule:** Weakness is calculated based on second-highest value near imaginary line
+
+- Can ONLY find WTB/WTT near the imaginary line
+- Too far from line = not relevant for current market
+- Imaginary line shifts as market moves
+
+## The Sheesh Aasan Connection
+
+```
+HEAD (Top/Larger Strikes)
+    CALL SIDE
+    OUT OF THE MONEY (Bahar)
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+    IMAGINARY LINE
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+    IN THE MONEY (Ander)
+    CALL SIDE
+
+    IN THE MONEY (Ander)
+    PUT SIDE
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+    IMAGINARY LINE
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+    OUT OF THE MONEY (Bahar)
+    PUT SIDE
+LEGS (Bottom/Smaller Strikes)
+```
+
+## Practical Examples
+
+### Example 1: Market at 17500
+```
+Imaginary Line: 17500
+
+Calls:
+17650 (OTM) - Too far, ignore
+17600 (OTM) - Relevant
+17550 (OTM) - Relevant ← Resistance here (closest)
+17500 (ATM) - At the line
+17450 (ITM) - Relevant
+17400 (ITM) - Relevant ← Support here (closest)
+17350 (ITM) - Too far, ignore
+
+Puts:
+17550 (ITM) - Relevant ← Resistance same as call
+17500 (ATM) - At the line  
+17450 (ITM) - Relevant ← Support same as put
+```
+
+### Example 2: Call Side Focus
+```
+If imaginary line is 5000:
+- 5000 is CLOSER to 6000
+- So call side: smaller (5000) is ITM, larger (6000) is OTM
+```
+
+### Example 3: Put Side Focus
+```
+If imaginary line is between 5000 and 7000:
+- 7000 is LARGER number
+- So put side: larger (7000) is ITM, smaller (5000) is OTM
+```
+
+## Remember
+
+1. Imaginary line MOVES with market
+2. Always check both OI and Volume near the line
+3. Closest to line = Most relevant
+4. ITM = Ander (inside), OTM = Bahar (outside)
+5. ITM/OTM definition REVERSES between Call and Put side

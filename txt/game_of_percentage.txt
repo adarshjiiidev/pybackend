@@ -1,0 +1,63 @@
+# Game of Percentage & State of Confusion
+
+## What is Game of Percentage?
+
+**Definition:** Tracking the **CHANGE** in percentage of the Second Highest Value (WTB/WTT) over time to predict pressure.
+
+**Why it matters:** 
+Instead of just saying "It is WTB", we ask "Is WTB getting STRONGER or WEAKER?"
+
+## The Percentage Rules
+
+### 1. WTT Percentage Increasing = BULLISH
+- **Scenario:** Weakness towards TOP is growing (e.g., 75% → 80% → 90%).
+- **Meaning:** Crowd is moving UP.
+- **Pressure:** BULLISH.
+
+### 2. WTT Percentage Decreasing = BEARISH
+- **Scenario:** Weakness towards TOP is shrinking (e.g., 90% → 80% → 75%).
+- **Meaning:** Crowd failed to move UP. Resistance becoming Strong.
+- **Pressure:** BEARISH.
+
+### 3. WTB Percentage Increasing = BEARISH
+- **Scenario:** Weakness towards BOTTOM is growing (e.g., 75% → 80% → 90%).
+- **Meaning:** Crowd is moving DOWN.
+- **Pressure:** BEARISH.
+
+### 4. WTB Percentage Decreasing = BULLISH
+- **Scenario:** Weakness towards BOTTOM is shrinking (e.g., 90% → 80% → 75%).
+- **Meaning:** Crowd failed to move DOWN. Support becoming Strong.
+- **Pressure:** BULLISH.
+
+### 5. Stable Percentage = Range Bound
+- **Scenario:** Percentage stays same (e.g., 82% → 82% → 81% → 82%).
+- **Meaning:** No clear winner.
+- **Pressure:** Market stuck in range.
+
+
+
+## Advanced Scenarios (Pressure Combinations)
+
+### Double Bullish (Bull Run)
+1. **Top Side:** WTT Increasing (Bullish) OR Top Shift
+2. **Bottom Side:** WTB Decreasing (Bullish) OR Top Shift
+- **Result:** Strong UP move.
+
+### Double Bearish (Blood Bath)
+1. **Top Side:** WTT Decreasing (Bearish) OR Bottom Shift
+2. **Bottom Side:** WTB Increasing (Bearish) OR Bottom Shift
+- **Result:** Strong DOWN move.
+
+### Conflicting Pressures (9th Scenario / 8th Scenario)
+- **Support:** Bullish Pressure (e.g., Strong)
+- **Resistance:** Bearish Pressure (e.g., WTT Decreasing)
+- **Result:** Market caught in between (Scenario 8 or 9).
+
+## Summary Table
+
+| Weakness Type | Change | Pressure |
+|---|---|---|
+| **WTT (Top)** | Increasing ↑ | **BULLISH** (Going up) |
+| **WTT (Top)** | Decreasing ↓ | **BEARISH** (Failed go up) |
+| **WTB (Bottom)** | Increasing ↑ | **BEARISH** (Going down) |
+| **WTB (Bottom)** | Decreasing ↓ | **BULLISH** (Failed go down) |

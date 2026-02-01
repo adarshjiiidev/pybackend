@@ -1,0 +1,217 @@
+"""
+Router/Planner Agent - Intent classification and mode selection.
+Analyzes user queries and routes to appropriate specialist agent.
+Uses FAST model for quick classification.
+"""
+
+from groq import AsyncGroq
+from typing import Optional, Any
+import logging
+import re
+
+from ..config import settings, ModelType
+from ..models.agent_state import AgentState, AgentMode
+
+logger = logging.getLogger(__name__)
+
+
+class RouterAgent:
+    """Routes user queries to appropriate specialized agents using fast model."""
+    
+    def __init__(self):
+        self.client = AsyncGroq(api_key=settings.groq_api_key)
+        self.model = settings.get_model_for_task(ModelType.ROUTER)
+        self.temperature = settings.get_temperature_for_task(ModelType.ROUTER)
+        self.max_tokens = settings.get_max_tokens_for_task(ModelType.ROUTER)
+    
+    async def classify_intent(self, state: AgentState) -> AgentState:
+        """
+        Classify user intent and select appropriate agent mode.
+        Also extract entities with conversation context awareness.
+        """
+        query = state["query"]
+        conversation_history = state.get("conversation_history", [])
+        
+        # Detect if deep search / research loop should be activated
+        should_research = self._should_trigger_research(query, state)
+        state["enable_research_loop"] = should_research
+        
+        system_prompt = """You are the routing brain of Daddys AI, a financial intelligence system built by Adarsh, a 14-year-old student at Daddys International School.
+
+Your job: quickly classify user queries and route to the right specialist.
+
+Available modes:
+- market_research: Deep fundamental analysis, company research
+- realtime_analysis: Price movements, technical analysis, current trends  
+- portfolio: Portfolio optimization, asset allocation
+- explainer: Educational content, concept clarification
+- crypto: Cryptocurrency analysis
+
+Classify the query and respond with ONLY the mode name."""
+
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Classify: {query}"}
+                ],
+                temperature=self.temperature,
+                max_tokens=50
+            )
+            
+            mode = response.choices[0].message.content.strip().lower()
+            
+            # Validate mode
+            valid_modes = {
+                "market_research": AgentMode.MARKET_RESEARCH,
+                "realtime_analysis": AgentMode.REALTIME_ANALYSIS,
+                "portfolio": AgentMode.PORTFOLIO,
+                "explainer": AgentMode.EXPLAINER,
+                "crypto": AgentMode.CRYPTO
+            }
+            
+            selected_mode = valid_modes.get(mode, AgentMode.MARKET_RESEARCH)
+            state["selected_mode"] = selected_mode.value
+            
+            # Extract entities with conversation context
+            entities = await self._extract_entities_with_context(query, conversation_history)
+            state["extracted_entities"] = entities
+            
+            logger.info(f"Classified as: {selected_mode.value}, Research loop: {should_research}, Entities: {entities}")
+            return state
+            
+        except Exception as e:
+            logger.error(f"Router classification error: {e}")
+            state["selected_mode"] = AgentMode.MARKET_RESEARCH.value
+            state["extracted_entities"] = {}
+            return state
+    
+    async def _extract_entities_with_context(self, query: str, conversation_history: list) -> dict:
+        """Extract entities using conversation history for context (resolves pronouns like 'it')."""
+        # Build context from recent conversation
+        context = ""
+        if conversation_history:
+            recent_msgs = conversation_history[-4:]  # Last 2 exchanges
+            for msg in recent_msgs:
+                role = "User" if msg["role"] == "user" else "AI"
+                context += f"{role}: {msg['content'][:150]}\n"
+        
+        prompt = f"""Extract stock symbols from the query. If query uses pronouns (it, that, this), check conversation history.
+
+Conversation History:
+{context}
+
+Current Query: {query}
+
+Respond with JSON: {{"symbols": ["SYMBOL1"], "timeframe": "1y", "amount": null}}
+If no symbols, return {{"symbols": [], "timeframe": null, "amount": null}}"""
+
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1,
+                max_tokens=100,
+                response_format={"type": "json_object"}
+            )
+            
+            import json
+            entities = json.loads(response.choices[0].message.content)
+            
+            # Normalize symbols to uppercase
+            if "symbols" in entities and entities["symbols"]:
+                entities["symbols"] = [s.upper() for s in entities["symbols"]]
+            
+            return entities
+        except Exception as e:
+            logger.error(f"Entity extraction error: {e}")
+            # Fallback to regex extraction
+            return await self._extract_entities(query)
+            logger.error(f"Router classification error: {e}")
+            state["selected_mode"] = AgentMode.MARKET_RESEARCH.value
+            return state
+    
+    def _should_trigger_research(self, query: str, state: AgentState) -> bool:
+        """
+        Detect if autonomous research loop should be triggered.
+        
+        Triggers on:
+        1. Manual enable_deep_search flag
+        2. Complex multi-part questions
+        3. Comparison queries  
+        4. Deep analysis keywords
+        """
+        # Check manual flag first
+        if state.get("enable_deep_search", False):
+            return True
+        
+        query_lower = query.lower()
+        
+        # Complexity indicators
+        complexity_keywords = [
+            "compare", "versus", "vs", "analyze deeply", "research",
+            "comprehensive analysis", "detailed study", "investigate",
+            "which is better", "what are the differences"
+        ]
+        
+        # Check for keywords
+        has_complexity = any(kw in query_lower for kw in complexity_keywords)
+        
+        # Check for multiple questions (multi-part)
+        question_marks = query.count("?")
+        is_multipart = question_marks > 1
+        
+        # Check query length (longer = more complex)
+        word_count = len(query.split())
+        is_long = word_count > 15
+        
+        # Trigger if any indicator is met
+        return has_complexity or is_multipart or is_long
+    
+    async def _extract_entities(self, query: str) -> dict[str, Any]:
+        """Extract stock symbols, timeframes, and other entities from query."""
+        entities = {
+            "symbols": [],
+            "timeframe": None,
+            "amount": None
+        }
+        
+        #Extract common Indian stock symbols
+        stock_patterns = [
+            r'\b(RELIANCE|TCS|INFY|HDFC|ICICI|SBI|TATA|ITC|WIPRO|HUL)\b',
+            r'\b([A-Z]{2,}\.NS|[A-Z]{2,}\.BO)\b'
+        ]
+        
+        for pattern in stock_patterns:
+            matches = re.findall(pattern, query.upper())
+            entities["symbols"].extend(matches)
+        
+        # Extract crypto symbols
+        crypto_pattern = r'\b(BTC|ETH|BITCOIN|ETHEREUM|CRYPTO)\b'
+        crypto_matches = re.findall(crypto_pattern, query.upper())
+        if crypto_matches:
+            entities["symbols"].extend(crypto_matches)
+        
+        # Extract timeframe
+        if any(word in query.lower() for word in ["today", "intraday", "now"]):
+            entities["timeframe"] = "1d"
+        elif any(word in query.lower() for word in ["week", "weekly"]):
+            entities["timeframe"] = "1wk"
+        elif any(word in query.lower() for word in ["month", "monthly"]):
+            entities["timeframe"] = "1mo"
+        elif any(word in query.lower() for word in ["year", "yearly", "annual"]):
+            entities["timeframe"] = "1y"
+        
+        # Extract amount (in lakhs/crores)
+        amount_pattern = r'(\d+(?:\.\d+)?)\s*(lakh|lakhs|crore|crores|L|Cr)'
+        amount_match = re.search(amount_pattern, query, re.IGNORECASE)
+        if amount_match:
+            value = float(amount_match.group(1))
+            unit = amount_match.group(2).lower()
+            if 'lakh' in unit or unit == 'l':
+                entities["amount"] = value * 100000
+            elif 'crore' in unit or unit == 'cr':
+                entities["amount"] = value * 10000000
+        
+        return entities

@@ -1,0 +1,253 @@
+# Strong - When Support/Resistance is Truly Strong
+
+## Definition
+
+**Strong** = When second highest value is <75% of the highest value
+
+**Simple:** When there's a clear winner, no close competition
+
+## The People Pushing Analogy
+
+```
+STRONG Scenario:
+Resistance (Head): 100 people pushing
+Next closest: 50 people pushing (50% = less than 75%)
+
+= STRONG resistance! 
+= No close competition
+= Clear leadership
+```
+
+```  
+WEAK (WTB/WTT) Scenario:
+Resistance: 100 people
+Next closest: 80 people(80% = more than 75%)
+
+= NOT strong!
+= Close competition  
+= Weakness present (WTT or WTB)
+```
+
+## Technical Formula
+
+```
+Highest Value = 100%
+Second Highest < 75%
+= STRONG ✓
+
+Second Highest ≥ 75%
+= NOT Strong (WTB or WTT exists)
+```
+
+## Examples
+
+### Example 1: Strong Support
+```
+Market @ 17500
+
+Put Side:
+17450 - 12 Lakh OI ← Support (100%)
+17400 - 7 Lakh OI  ← 58% of support
+17350 - 4 Lakh OI  ← Even weaker
+
+7L / 12L = 58% < 75%
+= STRONG support ✓
+
+No WTB, No WTT = Truly Strong
+```
+
+### Example 2: Strong Resistance
+```
+Market @ 17500
+
+Call Side:
+17550 - 15 Lakh OI ← Resistance (100%)
+17600 - 9 Lakh OI  ← 60% of resistance
+17650 - 5 Lakh OI  ← Even weaker
+
+9L / 15L = 60% < 75%
+= STRONG resistance ✓
+```
+
+### Example 3: NOT Strong (Has WTB)
+```
+Market @ 17500
+
+Put Side:
+17450 - 10 Lakh OI ← Support (100%)
+17400 - 8 Lakh OI  ← 80% of support
+
+8L / 10L = 80% > 75%
+= NOT Strong
+= WTB present (weakness toward bottom)
+```
+
+## Strong Pressure Rules
+
+### 1. Support Strong Initially = NEUTRAL
+```
+Market opens, Support is already strong
+= No movement yet
+= NEUTRAL pressure
+```
+
+### 2. Resistance Strong Initially = NEUTRAL
+```
+Market opens, Resistance is already strong
+= No movement yet
+= NEUTRAL pressure
+```
+
+### 3. Support WTB TO Strong = BULLISH ✓
+```
+Before: Support showed WTB (weak)
+After: Support becomes Strong
+
+= Weakness disappeared
+= BULLISH pressure
+```
+
+### 4. Support WTT TO Strong = BEARISH ✓
+```
+Before: Support showed WTT (weak toward top)
+After: Support becomes Strong
+
+= Top weakness gone
+= BEARISH pressure
+```
+
+### 5. Resistance WTB TO Strong = BULLISH ✓
+```
+Before: Resistance showed WTB
+After: Resistance becomes Strong
+
+= Bottom weakness gone
+= BULLISH pressure
+```
+
+### 6. Resistance WTT TO Strong = BEARISH ✓
+```
+Before: Resistance showed WTT  
+After: Resistance becomes Strong
+
+= Top weakness gone
+= BEARISH pressure
+```
+
+## Strong in Different Contexts
+
+### Context A: Both Strong = Range Bound
+
+```
+Resistance: STRONG (no weakness)
+Support: STRONG (no weakness)
+
+= Both pushing hard
+= Market stuck in range
+= Wait for one to weaken
+
+Range: EOR to EOS
+```
+
+**Sheesh Aasan Analogy:**
+```
+100 people pushing from HEAD (resistance)
+100 people pushing from LEGS (support)
+
+= Tug of war!
+= Market stays between them
+= Neither side wins
+```
+
+### Context B: Strong After Weakness = Reversal Signal
+
+```
+Was: Support WTB (weak, bearish)
+Now: Support STRONG (bullish)
+
+= Pressure REVERSED
+= Strong reversal signal
+```
+
+**Example:**
+```
+10:00 AM:
+Support 17450: 10L
+Strike 17400: 8.5L (85% = WTB)
+Pressure: BEARISH
+
+11:00 AM:
+Support 17450: 15L  
+Strike 17400: 9L (60% = STRONG)
+Pressure: BULLISH
+
+Market reversed from bearish to bullish!
+```
+
+## Strong vs WTB vs WTT - Summary Table
+
+| Condition | Second Highest | Status | Weakness |
+|-----------|---------------|--------|----------|
+| **STRONG** | <75% | Strong | None |
+| **WTB** | ≥75% at bottom | Weak | Toward bottom |
+| **WTT** | ≥75% at top | Weak | Toward top |
+
+## Strong Transition Rules (CRITICAL)
+
+**NEVER say "Weak to Strong is Bullish". It depends on WHERE the weakness was!**
+
+### Rule 1: WTB to Strong = BULLISH
+- **Scenario:** Weakness was at BOTTOM (Legs). Now it is gone.
+- **Meaning:** Bears failed to pull market down. Bulls take over.
+- **Result:** BULLISH Pressure.
+
+### Rule 2: WTT to Strong = BEARISH
+- **Scenario:** Weakness was at TOP (Head). Now it is gone.
+- **Meaning:** Bulls failed to push market up. Bears take over.
+- **Result:** BEARISH Pressure.
+
+### Rule 3: Shift & Strong = CONFIRMED Trend
+- **Shift Top + Strong:** Bullish.
+- **Shift Bottom + Strong:** Bearish.
+
+**Verify carefully:** Was it WTB or WTT before? The direction depends 100% on that.
+
+## Common Mistakes to AVOID
+
+- **Mistake:** "Resistance became strong, so market is bullish."
+  - **Correction:** If it was WTT before, it is now BEARISH. WTT (up pressure) is gone.
+- **Mistake:** "Support became strong, so market is bearish."
+  - **Correction:** If it was WTB before, it is now BULLISH. WTB (down pressure) is gone.
+
+## Real Trading Example
+
+```
+Scenario: Nifty @ 17500
+
+9:15 AM (Market Open):
+Support 17450: 8L, 17400: 6.5L (81% = WTB)
+Status: BEARISH pressure
+
+9:45 AM:
+Support 17450: 12L, 17400: 7L (58% = STRONG)
+Status: BULLISH pressure (WTB to Strong)
+
+Action: Look for bullish trades (CE buying)
+Entry: Around EOS (Extension of Support)
+```
+
+## Key Takeaways
+
+1. **Strong = No close competition** (second < 75%)
+2. **Strong from WTB = BULLISH**
+3. **Strong from WTT = BEARISH**  
+4. **Strong from start = NEUTRAL**
+5. **Both strong = Range bound**
+6. **Strong after weakness = Reversal signal**
+
+## Remember
+
+- Strong is GOOD for that level (resistance/support)
+- Strong means HARDER to break
+- Watch for transitions TO strong (reversal signals)
+- Strong alone doesn't give direction, transitions do!

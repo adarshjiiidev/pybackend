@@ -1,0 +1,140 @@
+# Support and Resistance - The Sheesh Aasan Concept
+
+## Understanding The LTP Calculator Layout
+
+### The Sheesh Aasan (Headstand) Analogy
+
+**Imagine the market is doing Sheesh Aasan (headstand):**
+
+```
+HEAD (Top) ← Larger Strike Prices (17700, 17750, 17800...)
+  ↑
+BODY (Middle) ← Current Market Price (Imaginary Line)
+  ↓
+LEGS (Bottom) ← Smaller Strike Prices (17300, 17250, 17200...)
+```
+
+**Why this matters:**
+- In LTP Calculator, counting goes 1, 2, 3, 4... (straight counting)
+- Smaller strike prices (17200, 17250) are at BOTTOM/LEGS
+- Larger strike prices (17700, 17750) are at TOP/HEAD
+- Market stands upside down in option chain!
+
+### The People Pushing Analogy
+
+**Imagine two groups of people pushing:**
+
+**RESISTANCE (Call Side - Top/Head):**
+- People pushing market DOWN from head side
+- They want market to go lower
+- More people here = more downward pressure
+
+**SUPPORT (Put Side - Bottom/Legs):**
+- People pushing market UP from leg side  
+- They want market to go higher
+- More people here = more upward pressure
+
+## How It Works
+
+### Scenario 1: Support is Stronger
+```
+Resistance (Head): 50 people pushing DOWN
+        ↓↓↓
+    Market @ 17500
+        ↑↑↑↑↑
+Support (Legs): 100 people pushing UP
+
+Result: Market goes UP! (More people pushing from bottom)
+```
+
+**Example:**
+- Support at 17450 has 10 lakh OI
+- Resistance at 17550 has 5 lakh OI
+- Support has MORE people → Market will move TOWARDS RESISTANCE (upward)
+
+### Scenario 2: Resistance is Stronger
+```
+Resistance (Head): 100 people pushing DOWN
+        ↓↓↓↓↓
+    Market @ 17500
+        ↑↑↑
+Support (Legs): 50 people pushing UP
+
+Result: Market goes DOWN! (More people pushing from top)
+```
+
+**Example:**
+- Resistance at 17550 has 12 lakh OI
+- Support at 17450 has 6 lakh OI
+- Resistance has MORE people → Market will move TOWARDS SUPPORT (downward)
+
+## Support and Resistance - Technical Definition
+
+### Support (Put Side - Bottom/Legs)
+
+**Location:** Below current market price (smaller strike prices)  
+**Direction:** Calculated from LARGE strike to SMALL strike moving toward imaginary line  
+**Formula:** Highest OI/Volume nearest to imaginary line on PUT side
+
+**Example:**
+```
+Imaginary Line: 17500
+Put Strikes: 17400 (8L OI), 17450 (12L OI), 17500 (10L OI)
+
+Moving from large to small toward line:
+17500 → 17450 → 17400
+         ↑
+    12 Lakh is closest and highest
+    
+Support = 17450 ✓
+```
+
+### Resistance (Call Side - Top/Head)
+
+**Location:** Above current market price (larger strike prices)  
+**Direction:** Calculated from SMALL strike to LARGE strike moving toward imaginary line  
+**Formula:** Highest OI/Volume nearest to imaginary line on CALL side
+
+**Example:**
+```
+Imaginary Line: 17500
+Call Strikes: 17500 (9L OI), 17550 (15L OI), 17600 (7L OI)
+
+Moving from small to large toward line:
+17500 → 17550 → 17600
+         ↑
+    15 Lakh is closest and highest
+    
+Resistance = 17550 ✓
+```
+
+## The Tug of War
+
+**Think of it like this:**
+
+1. **More people pushing from BOTTOM** = Market goes UP (toward head)
+2. **More people pushing from TOP** = Market goes DOWN (toward legs)
+3. **Equal people both sides** = Market stays in RANGE
+
+**Key Rule:**
+- Market moves TOWARD the weaker side
+- If support is weaker, market goes down to support
+- If resistance is weaker, market goes up to resistance
+- If both are strong, market stays between them
+
+## Important Notes
+
+**OI vs Volume:**
+- Both OI and Volume create support/resistance
+- Always consider whichever is CLOSEST to imaginary line
+- If both at same level, they reinforce each other
+
+**Call Side Rules:**
+- Smaller strikes are IN THE MONEY (inside/ander)
+- Larger strikes are OUT OF THE MONEY (outside/bahar)
+- Count from small to large
+
+**Put Side Rules:**
+- Larger strikes are IN THE MONEY (inside/ander)
+- Smaller strikes are OUT OF THE MONEY (outside/bahar)
+- Count from large to small

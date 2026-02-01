@@ -1,0 +1,31 @@
+# AI LTP Calculator & Advanced Definitions
+
+## AI LTP Predictions
+
+The AI module of LTP Calculator provides real-time scenario analysis.
+- **Scenario Identification:** Automatically detects if market is in Scenario 1, 2, etc.
+- **Risky Levels:** Identifies "Risky Top" and "Risky Bottom".
+- **Visuals:** Plots EOR, EOS, and breakdown levels on the chart.
+
+## Max Pain & Max Gain
+
+- **Max Pain:** The strike price where Option Writers (Sellers) will lose the least money. Market tends to expire near here.
+- **Max Gain:** Theoretical target for option buyers (less reliable).
+
+## Reversal Math (Details)
+
+- **EOR (Extension of Resistance):** Strike Price + Delta/Gamma calculation.
+- **EOS (Extension of Support):** Strike Price - Delta/Gamma calculation.
+- **+1 / -1:** Refers to the NEXT strike price deviations.
+  - If Resistance is 17500. EOR is near 17500.
+  - EOR+1 is related to 17550 (Next strike).
+  - Used for Averaging or Stoploss placement.
+
+## Glossary of Terms
+
+- **Imaginary Line:** Current ATM division.
+- **Shift:** Boss changing house (Highest OI moving).
+- **Consolidation:** COA 2.0 both stable.
+- **Blood Bath:** Free fall (Scenario 6).
+- **Bull Run:** Sky rocket (Scenario 7).
+- **Sheesh Aasan:** Upside down market view (Bottom strikes at legs, Top strikes at head).

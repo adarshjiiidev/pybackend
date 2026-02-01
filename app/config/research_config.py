@@ -1,0 +1,16 @@
+# Research Loop Configuration
+
+# Loop bounds
+MAX_RESEARCH_ITERATIONS = 5
+DEFAULT_CONFIDENCE_THRESHOLD = 0.75
+HARD_TIMEOUT_SECONDS = 120
+
+# Confidence scoring weights
+DATA_QUALITY_WEIGHT = 0.3
+DATA_FRESHNESS_WEIGHT = 0.2
+AGREEMENT_WEIGHT = 0.3
+COMPLETENESS_WEIGHT = 0.2
+
+# Trigger conditions
+ENABLE_AUTO_RESEARCH = True
+MIN_QUERY_COMPLEXITY = 3  # Words in query to trigger research

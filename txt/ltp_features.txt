@@ -1,0 +1,47 @@
+# LTP Calculator Features
+
+## 1. LTP Blast (Intraday)
+
+**Purpose:** Intraday stock selection for quick moves.
+**Columns:**
+- **C1 & C2:** Bullish Triggers
+- **P1 & P2:** Bearish Triggers
+- **Bullish/Bearish Risk:** Shows risk level.
+
+**Trading Rules:**
+- **Fresh Signal:** If stock hits C1 (Bullish) and hasn't triggered before -> **BUY**.
+- **Average:** If stock hits C1, then dips to C2 -> **ADD/AVERAGE**.
+- **Stop Loss:** Per calculated risk levels.
+- **Already Hit:** If stock already hit C1/C2 earlier -> **AVOID** (Move might be over).
+
+## 2. LTP Swing (Positional)
+
+**Purpose:** Positional trading (Swing trading) based on delivery data and OI.
+**Logic:** Uses "OI to OI" trading method.
+**Analysis Table:**
+- Symbol, Lot Size, Status (Bullish/Bearish)
+- CMP (Current Market Price)
+- Put Highest OI (Support) / Call Highest OI (Resistance)
+
+**Selection Rules:**
+- **Bullish Trade:** 
+  1. Support should NOT be WTB.
+  2. Resistance should NOT be WTB.
+  3. Call side ITM premiums > 0 (No zero premiums indicating manipulation).
+  
+- **Bearish Trade:**
+  1. Support should NOT be WTT.
+  2. Resistance should NOT be WTT.
+  3. Put side ITM premiums > 0.
+
+## 3. Arbitrage Stocks (Risk Free)
+
+**Purpose:** 100% Probability Profit (Arbitrage).
+**Method:** Exploiting price difference between **Future** and **Spot** prices.
+**Strategy:**
+1. Sell 1 Lot Future.
+2. Buy equivalent value in Cash (Equity) shares.
+3. Wait for expiry when Future and Spot prices converge.
+4. Profit = The difference captured.
+
+**Key Requirement:** Requires significant capital but offers low-risk checking account-like returns.

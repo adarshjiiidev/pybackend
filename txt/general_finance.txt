@@ -1,0 +1,206 @@
+# General Finance and Trading Terms
+
+## Basic Market Terms
+
+### Stock/Share
+Represents ownership in a company. When you buy a stock, you become a partial owner.
+
+### Index
+A collection of stocks representing a market segment
+- **Nifty 50**: Top 50 companies on NSE
+- **Bank Nifty**: Banking sector index
+- **Sensex**: Top 30 companies on BSE
+
+### Market Capitalization
+Total value of company's shares = Share Price × Total Shares
+- **Large Cap**: > ₹20,000 crores
+- **Mid Cap**: ₹5,000 - ₹20,000 crores
+- **Small Cap**: < ₹5,000 crores
+
+### Volume
+Number of shares traded in a period
+- High volume = High liquidity
+- Volume confirms price movements
+
+### Volatility
+Measure of price fluctuations
+- High volatility = Higher risk & potential reward
+- Low volatility = Stable prices
+
+## Fundamental Analysis Terms
+
+### P/E Ratio (Price to Earnings)
+Market Price / Earnings Per Share
+- **High P/E**: Overvalued or high growth expected
+- **Low P/E**: Undervalued or poor growth prospects
+- Compare within same sector
+
+### EPS (Earnings Per Share)
+Net Profit / Total Shares
+- Higher EPS = Better profitability
+
+### ROE (Return on Equity)
+Net Income / Shareholder's Equity × 100
+- Measures company's profitability
+- **> 15%**: Generally good
+
+### Debt-to-Equity Ratio
+Total Debt / Total Equity
+- **< 1**: Healthy balance
+- **> 2**: High leverage, risky
+
+### Book Value
+Company's total assets minus liabilities
+- Market Price < Book Value = Potentially undervalued
+
+## Trading Terms
+
+### Bid and Ask
+- **Bid**: Highest price buyers willing to pay
+- **Ask**: Lowest price sellers willing to accept
+- **Spread**: Difference between bid and ask
+
+### Market Order
+Buy/sell immediately at current market price
+- Executes fast
+- Price not guaranteed
+
+### Limit Order
+Buy/sell only at specified price or better
+- Price control
+- May not execute
+
+### Stop Loss
+Automatic sell order when price falls to specified level
+- Risk management tool
+- Protects capital
+
+### Take Profit
+Automatic sell order when price reaches target
+- Lock in profits
+- Disciplined exit
+
+### Intraday Trading
+Buy and sell within same trading day
+- No overnight risk
+- Requires quick decisions
+- Higher brokerage impact
+
+### Swing Trading
+Hold positions for days to weeks
+- Capture medium-term moves
+- Less screen time than intraday
+
+### Position Trading
+Long-term holding (months to years)
+- Based on fundamentals
+- Ride major trends
+
+## Market Timings (India)
+
+### NSE/BSE Regular Session
+- **Pre-open**: 9:00 AM - 9:15 AM
+- **Trading**: 9:15 AM - 3:30 PM
+- **Closing**: 3:30 PM - 4:00 PM (for order matching)
+
+### After Market Orders (AMO)
+Place orders after market hours for next day execution
+
+## Order Types
+
+### CNC (Cash and Carry)
+Delivery trading - hold stocks in demat account
+
+### MIS (Margin Intraday Square-off)
+Intraday with margin
+- Auto square-off by broker if not closed
+
+### BO (Bracket Order)
+Advanced intraday order with auto stop-loss and target
+
+### CO (Cover Order)
+Intraday order with mandatory stop-loss
+
+## Dividend and Corporate Actions
+
+### Dividend
+Company's profit distributed to shareholders
+- **Ex-dividend Date**: After this, no dividend for new buyers
+
+### Bonus Shares
+Free additional shares to existing shareholders
+- Example: 1:1 bonus = 1 free share for each held
+
+### Stock Split
+Divide share into smaller denominations
+- Example: 1:2 split = 1 share becomes 2, price halves
+- Increases liquidity
+
+### Rights Issue
+Offer to buy additional shares at discounted price
+- Existing shareholders get preference
+
+## Risk Management
+
+### Position Sizing
+Amount of capital allocated per trade
+- Never risk > 2% per trade
+
+### Risk-Reward Ratio
+Potential Profit / Potential Loss
+- Minimum 1:2 recommended (risk ₹100 to make ₹200)
+
+### Diversification
+Don't put all eggs in one basket
+- Spread across sectors
+- Mix of large/mid/small caps
+
+### Hedging
+Use derivatives to reduce risk
+- Buy put options to protect long positions
+- Create collar strategies
+
+## Market Indicators
+
+### FII/DII Activity
+- **FII**: Foreign Institutional Investors
+- **DII**: Domestic Institutional Investors
+- Net buying = Bullish, Net selling = Bearish
+
+### VIX (Volatility Index)
+Measures market fear/uncertainty
+- **Low VIX < 15**: Calm market
+- **High VIX > 25**: Fearful market
+
+### Advance-Decline Ratio
+Number of advancing stocks / Declining stocks
+- **> 1**: Bullish market breadth
+- **< 1**: Bearish market breadth
+
+## Account Types
+
+### Demat Account
+Holds shares in electronic form
+- Mandatory for trading
+
+### Trading Account  
+Used to place buy/sell orders
+- Linked to demat account
+
+### Savings Account
+Bank account linked for fund transfers
+
+## Taxation (India - Basic Overview)
+
+### Short-term Capital Gains (STCG)
+Holding < 1 year
+- **15%** on equity delivery
+
+### Long-term Capital Gains (LTCG)
+Holding > 1 year
+- **10%** on gains > ₹1 lakh (equity)
+
+### Intraday Trading
+Treated as business income, taxed per slab
+
+**Note**: Tax laws change, consult CA for current rates

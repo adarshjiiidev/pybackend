@@ -1,0 +1,166 @@
+# Options Trading Concepts
+
+## Definition
+Options are derivative contracts that give the holder the right, but not the obligation, to buy or sell an underlying asset at a specified price (strike price) on or before a specified date (expiration date).
+
+## Types of Options
+
+### Call Option
+- Right to **BUY** the underlying asset
+- Profit when price goes UP
+- Maximum loss: Premium paid
+- Unlimited profit potential
+
+### Put Option
+- Right to **SELL** the underlying asset
+- Profit when price goes DOWN
+- Maximum loss: Premium paid
+- Maximum profit: Strike price minus premium
+
+## Key Terms
+
+### Strike Price
+The predetermined price at which the option can be exercised
+
+### Premium
+The price paid to buy an option contract
+- Affected by: Time value, intrinsic value, volatility
+
+### Expiration Date
+The last date on which the option can be exercised
+- Weekly, Monthly, Quarterly expiries available
+
+### Open Interest (OI)
+Total number of outstanding option contracts
+- High OI = High liquidity
+- OI buildup indicates strong support/resistance
+
+### Greeks
+
+**Delta**: Rate of change of option price with respect to underlying price
+- Call delta: 0 to 1
+- Put delta: 0 to -1
+
+**Gamma**: Rate of change of delta
+- Highest at ATM options
+
+**Theta**: Time decay of option value
+- Options lose value as expiration approaches
+- Accelerates in final week
+
+**Vega**: Sensitivity to volatility changes
+- Higher volatility = Higher premium
+
+**Rho**: Sensitivity to interest rate changes
+- Less significant for short-term options
+
+## Option Moneyness
+
+### ITM (In The Money)
+- Call: Spot price > Strike price
+- Put: Spot price < Strike price
+- Has intrinsic value
+
+### ATM (At The Money)
+- Spot price ≈ Strike price
+- Highest Gamma
+- Most liquid
+
+### OTM (Out of The Money)
+- Call: Spot price < Strike price
+- Put: Spot price > Strike price
+- Only time value, no intrinsic value
+- Cheaper but riskier
+
+## Option Strategies
+
+### Directional Strategies
+
+**Long Call**: Bullish strategy, limited risk, unlimited profit
+
+**Long Put**: Bearish strategy, limited risk, limited profit
+
+**Short Call**: Bearish/neutral, unlimited risk, limited profit
+
+**Short Put**: Bullish/neutral, significant risk, limited profit
+
+### Neutral Strategies
+
+**Straddle**: Buy ATM call + ATM put
+- Profit from big moves in either direction
+- High cost due to double premium
+
+**Strangle**: Buy OTM call + OTM put
+- Cheaper than straddle
+- Needs bigger move to profit
+
+**Iron Condor**: Sell OTM call spread + OTM put spread
+- Profit in range-bound market
+- Limited risk and profit
+
+**Butterfly**: Combines bull and bear spreads
+- Profit when price stays near ATM
+
+## Option Chain Analysis
+
+### How to Read Option Chain
+1. **Strike prices** in center column
+2. **Calls** on left side
+3. **Puts** on right side
+4. **OI buildup** shows support/resistance
+5. **Volume** shows current activity
+
+### Key Indicators
+- **PCR (Put-Call Ratio)**: OI(Put) / OI(Call)
+  - > 1: Bullish sentiment
+  - < 1: Bearish sentiment
+  - > 1.5: Extremely bullish
+  
+- **Max Pain**: Strike with maximum OI
+  - Price tends to move toward max pain near expiry
+
+## Risk Management
+
+1. **Never risk more than 2-5% per trade**
+2. **Use stop losses** - Typically 30-50% of premium
+3. **Don't hold till expiry** unless planned
+4. **Avoid illiquid options** - Check OI and volume
+5. **Beware of theta decay** in last 3-5 days
+
+## Indian Options Market Specifics
+
+### NIFTY Options
+- Most liquid options in India
+- Strike interval: 50 points
+- Lot size: 25 (subject to change)
+- Weekly + Monthly expiries
+
+### Bank NIFTY Options
+- High volatility, higher premium
+- Strike interval: 100 points
+- Lot size: 15 (subject to change)
+- Wednesday weekly expiry + Monthly
+
+### Stock Options
+- Available for ~200 stocks
+- Less liquid than index options
+- Higher impact cost
+
+## Common Mistakes to Avoid
+
+1. Buying deep OTM options (lottery trading)
+2. Holding options till last day expecting miracle
+3. Ignoring theta decay
+4. Trading without understanding Greeks
+5. Not using stop losses
+6. Over-leveraging
+7. Trading illiquid options
+
+## Best Practices
+
+1. Start with small positions
+2. Paper trade first
+3. Understand implied volatility
+4. Use technical + OI analysis together
+5. Have a clear entry and exit plan
+6. Keep learning from trades

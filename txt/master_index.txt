@@ -1,0 +1,42 @@
+# InvestingDaddy Knowledge Base Index
+
+This directory contains the core knowledge for the Finance Agent.
+
+## 1. Fundamentals & Basics
+- **about.txt**: Vinay Sir, Daddy's International School, Mission.
+- **support_resistance_basics.txt**: The "Sheesh Aasan" concept, Head/Legs analogy, Pushing logic.
+- **imaginary_line.txt**: ITM/OTM definition, dividing line importance.
+- **strong.txt**: Definition of Strong market (Second highest < 75%).
+- **ai_ltp.txt**: AI features, Max Pain, Glossary.
+
+## 2. Pressure, Shifting & Confusion
+- **wtb.txt**: Weak Towards Bottom rules, 75% rule, pressure logic.
+- **wtt.txt**: Weak Towards Top rules, pressure logic, shifting implications.
+- **shifting_pressure.txt**: Rules for Top/Bottom shifts, Reversals, Natural Weakness.
+- **game_of_percentage.txt**: Increasing/Decreasing % rules.
+- **soc.txt**: State of Confusion (SOC) rules, 1hr/2hr/3hr rules, Trading Strategy.
+
+## 3. Market Analysis (LTP Calculator)
+- **coa_1_0.txt**: The 9 Scenarios (Chart of Accuracy 1.0) - PRIMARY.
+- **coa_2_0.txt**: OI Change analysis (Call vs Put writers).
+- **scenarios.txt**: Detailed breakdown of 9 scenarios (Reference).
+- **weekly_range.txt**: Weekly Range (L1, L2, L3) logic.
+
+## 4. Trading Strategies & Features
+- **trading_strategies.txt**: 9:20 AM Strategy, 6 types of reversals.
+- **ltp_features.txt**: LTP Blast, Swing, Arbitrage features.
+- **options_trading.txt**: Greeks, Option Chain, Call/Put basics.
+
+## 5. General Tech Analysis & Finance
+- **general_finance.txt**: Market terms, Order types, Corporate actions.
+- **technical_analysis.txt**: Candlesticks, Moving Averages, RSI, Patterns.
+
+## 6. RULES & CONSTRAINTS (HIGHEST PRIORITY)
+- **constraints.txt**: **CRITICAL** Global constraints. Read this first to avoid hallucinations. Currency rules, Banned terms, Priority Logic.
+
+## Usage Guide for AI
+
+1. **Step 1:** ALWAYS check *constraints.txt* first.
+2. **Step 2:** For LTP Logic, check *basics*, *wtb/wtt*, *shifting*, *soc*, and *coa_1_0*.
+3. **Step 3:** For Confirmation, use *coa_2_0*.
+4. **Step 4:** For General/Stocks, use *general_finance* and *technical_analysis*.

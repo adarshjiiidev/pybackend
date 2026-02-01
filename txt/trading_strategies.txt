@@ -1,0 +1,60 @@
+# Trading Strategies & 9:20 AM Rule
+
+## The 9:20 AM Strategy
+
+**Best For:** Beginners.
+**Time:** Starts at 9:20 AM (Market settles initial volatility).
+
+### How it works:
+1. Open LTP Calculator Chart at 9:20 AM.
+2. The AI plots **4 Magical Lines**:
+   - **EOR+1** (Top most)
+   - **EOR** (Resistance)
+   - **EOS** (Support)
+   - **EOS-1** (Bottom most)
+
+### Trading Rules:
+- **No Brainer:** Do not analyze deeply. Just follow the lines.
+- **If Market hits EOR or EOR+1:**
+  - Trade: **BUY PUT** (Bearish trade)
+  - Assumption: Market will reverse down.
+- **If Market hits EOS or EOS-1:**
+  - Trade: **BUY CALL** (Bullish trade)
+  - Assumption: Market will reverse up.
+
+### Risk Management (Stoploss & Targets):
+- **Trade from EOR/EOS:**
+  - Stoploss: ~110 points (Option chart or Spot? Usually Spot deviation).
+  - Target: 50 points.
+- **Trade from EOR+1/EOS-1 (Safe):**
+  - Stoploss: ~60 points.
+  - Target: 100 points.
+- **Averaging:**
+  - If took trade at **EOR** -> Market goes up -> Average at **EOR+1** (Double quantity).
+  - If took trade at **EOS** -> Market goes down -> Average at **EOS-1**.
+
+## Reversal Trading (EOR/EOS)
+
+**Concept:** LTP Calculator specializes in "Reversal Trading" (Catching top/bottom) rather than breakout trading.
+
+### 6 Kinds of Reversals:
+1. **EOR** (Extension of Resistance)
+2. **EOS** (Extension of Support)
+3. **EOR+1** (Divergence above Resistance)
+4. **EOS-1** (Divergence below Support)
+5. **Diversion** (Mid-points based on strike gaps)
+6. **End of Diversion** (Last possible reversal point)
+
+### Calculation:
+Reversal points are calculated based on Option Chain Greeks (Delta, Gamma, Theta, Vega) to find the precise turning point.
+
+**Example:**
+- Strike: 17500
+- LTP Calculator shows EOR: 17523.
+- Market often touches 17523 and reverses precisely.
+
+## Diversion Trading logic
+
+- **Call Side Diversion:** Selling opportunity (Bearish).
+- **Put Side Diversion:** Buying opportunity (Bullish).
+- Always check **COA 2.0** (OI Change) at diversion points to confirm strength.

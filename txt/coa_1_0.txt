@@ -1,0 +1,93 @@
+# COA 1.0 - The 9 Scenarios (Chart of Accuracy)
+
+**COA 1.0** defines market range and direction based on the combination of Support and Resistance states.
+
+## Key Terms
+- **EOR:** Extension of Resistance (Sell/Put Level)
+- **EOS:** Extension of Support (Buy/Call Level)
+- **WTT:** Weak Towards Top
+- **WTB:** Weak Towards Bottom
+
+## The 9 Scenarios
+
+### Scenario 1: Both Strong
+- **Support:** Strong
+- **Resistance:** Strong
+- **Trend:** Range Bound
+- **Call Entry:** EOS (Buy)
+- **Put Entry:** EOR (Sell)
+- **Max Range:** EOR to EOS
+
+### Scenario 2: Resistance Strong, Support WTB
+- **Support:** Weak Towards Bottom
+- **Resistance:** Strong
+- **Trend:** Bearish (Pressure Down)
+- **Call Entry:** Avoid / risky
+- **Put Entry:** EOR (Sell)
+- **Target:** EOR to WTB+1 (or broken support)
+
+### Scenario 3: Resistance Strong, Support WTT
+- **Support:** Weak Towards Top
+- **Resistance:** Strong
+- **Trend:** Bullish (Pressure Up)
+- **Call Entry:** EOS (Buy)
+- **Put Entry:** EOR+1 (Risky) or Avoid
+- **Target:** EOS to EOR+1
+
+### Scenario 4: Resistance WTB, Support Strong
+- **Support:** Strong
+- **Resistance:** Weak Towards Bottom
+- **Trend:** Bullish (Resistance weakening down = Bullish? WAIT, RE-VERIFY)
+*Correction from old file:* "Resistance WTB se strong = Bullish". "Resistance WTB = Bullish Pressure".
+Wait, Resistance WTB means weakness towards bottom. Traders shifting down.
+If Resistance shifts DOWN, that is **BEARISH**.
+Let's check `old_all_in_one.txt` line 328: "4th - Resistance Weak Towards Bottom Support Strong. Range:- EOS , EOS-1."
+Range EOS to EOS-1 implies very low/bearish?
+Old file line 40: "wtb yani bearish pressure".
+Old file line 195: "resistance wtb se strong = bullish presure" (Transition is bullish).
+BUT pure "Resistance WTB" means resistance is trying to move DOWN.
+If resistance moves DOWN (17500 -> 17450), market goes DOWN (Bearish).
+So **Scenario 4 (Res WTB)** is **BEARISH**.
+
+*Re-reading Scenario 4 line 328:* "Resistance Weak Towards Bottom Support Strong. Range:- EOS , EOS-1."
+EOS is Buy level. EOS-1 is lower buy level. Use Put from where?
+Usually Resistance WTB -> Shift Down -> Bearish.
+This scenario usually leads to sliding down.
+
+### Scenario 5: Resistance WTT, Support Strong (Bullish... usually)
+- **Standard:** Resistance WTT (Bullish) + Support Strong (Neutral) = **BULLISH**.
+- **Nuance (CRITICAL):** If Support became Strong **FROM WTT** (which is Bearish pressure), then:
+  - Resistance (Bullish) vs Support (Bearish) = **CONSOLIDATION / SCENARIO 8**.
+  - **Rule:** Conflicting pressures ALWAYS equal Consolidation.
+
+### Scenario 8: Bullish Support vs Bearish Resistance (The Expander)
+- **Resistance:** WTT (Weak Toward Top) → Bullish Pressure
+- **Support:** WTB (Weak Toward Bottom) → Bearish Pressure
+- **Conflict:** One side pushing UP, other pushing DOWN (Away from center).
+- **Result:** Market EXPANDS its range. Highly Volatile.
+- **Range:** WTT-1 to WTB+1.
+
+### Scenario 9: Bearish Support vs Bullish Resistance (The Squeeze)
+- **Resistance:** WTB (Weak Toward Bottom) → Bearish Pressure
+- **Support:** WTT (Weak Toward Top) → Bullish Pressure
+- **Conflict:** One side pushing DOWN, other pushing UP (Toward center).
+- **Result:** Market SQUEEZES/CONSOLIDATES.
+- **Range:** EOR+1 to EOS-1.
+
+**General Rule:** If you see Bullish pressure from one side and Bearish from the other, the market is in **Scenario 8 or 9 (Consolidation/Conflict)**. Tread carefully.
+
+## Simplified Cheatsheet
+
+| Scenario | Support | Resistance | View | Strategy |
+|---|---|---|---|---|
+| **#1** | Strong | Strong | Range | Buy EOS, Sell EOR |
+| **#2** | WTB | Strong | Bearish | Sell EOR (Puts favored) |
+| **#3** | WTT | Strong | Bullish | Buy EOS (Calls favored) |
+| **#4** | Strong | WTB | Bearish | Sell EOR (Puts favored) - *Resistance moving down* |
+| **#5** | Strong | WTT | Bullish | Buy EOS (Calls favored) - *Resistance moving up* |
+| **#6** | WTB | WTB | Blood Bath | Sell on Rise (Aggressive Puts) |
+| **#7** | WTT | WTT | Bull Run | Buy on Dips (Aggressive Calls) |
+| **#8** | WTB | WTT | Expander | Highly Volatile/Expanding |
+| **#9** | WTT | WTB | Squeeze | Tight Range (Consolidation) |
+
+*Note:* Always verify shifting rules first. Shifting dictates the primary trend.

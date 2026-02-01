@@ -1,0 +1,235 @@
+# WTT (Weak Towards Top) - Complete Guide
+
+## Definition
+
+**WTT = Weak Towards Top**
+
+**Technical:** Second highest OI/Volume is ≥75% of the highest, located at TOP side (larger strike prices) near imaginary line
+
+**Simple:** When market shows weakness toward top/head side
+
+## The 75% Rule
+
+**Formula:**
+```
+If Support/Resistance = 100% (highest value)
+Then WTT must be ≥75% at TOP side
+```
+
+**Example:**
+```
+Resistance at 17500: 10 Lakh OI (100%)
+Strike at 17550: 8 Lakh OI (80% of 10L)
+                  ↑
+            This is ≥75%, so WTT exists!
+            
+WTT confirmed at 17550
+```
+
+## WTT in Different Contexts
+
+### 1. Resistance WTT (Head Side Weakness)
+
+**Scenario:** Resistance shows weakness toward top
+
+```
+Market @ 17500
+
+Call Side:
+17500 - 10L OI ← Resistance (100%)
+17550 - 8L OI  ← WTT (80% ≥ 75%) ✓ (Toward Top/Head)
+17600 - 3L OI
+
+Resistance WTT confirmed
+```
+
+**Pressure:** BULLISH pressure  
+**Meaning:** Traders interested at top side, resistance might shift UP
+**Analogy:** The "door" at the top (Head) is getting weak, market wants to go UP to the next level.
+
+**Example with Sheesh Aasan:**
+```
+Resistance (Head) pushing DOWN with 10 people
+But 8 people gathering at a HIGHER level (Top side)
+= Head group losing focus/strength
+= Market might break UP toward the new crowd
+```
+
+### 2. Support WTT (Legs Side Shows Top Weakness)
+
+**Scenario:** Support shows weakness toward top
+
+```
+Market @ 17500
+
+Put Side:
+17400 - 10L OI ← Support (100%)
+17450 - 8L OI  ← WTT (80% ≥ 75%) ✓ (Toward Top/Head from Legs)
+17350 - 4L OI
+
+Support WTT confirmed
+```
+
+**Pressure:** BULLISH pressure (Weakness is toward TOP) -> *Wait, let's verify context.*
+*Correction based on Vinay Sir's Logic:* "Support WTT se Strong = Bearish". "Support WTT = Bearish Pressure".
+Let's re-read old file: "support wtt se strong = bearish presure". "support wtt to strong = bearish presure".
+*Logic check:* If support is at 17400 and weak at 17450 (closer to market), it means support is trying to come UP. If support shifts UP, it pushes market UP.
+*Refining:* "Support WTT" usually means support is trying to shift UP (bullish intent).
+*BUT* the old file says: "support wtt se strong = bearish presure".
+Wait, if existing support (Legs) has weakness towards Top (closer to market/Head), it implies potential *shift up*.
+If it *becomes strong* (WTT to Strong), it means the shift failed or didn't happen, or the top weakness vanished.
+Old file line 193: "support wtt se strong = bearish presure".
+And line 201: "support wtt to strong = bearish presure".
+And line 209: "wtt se strong = bearish presure".
+
+*Crucial Correction:* The old file generalizes "WTT se Strong = Bearish".
+Let's stick to the specific transition rules.
+
+### WTT Market Pressure Rules
+
+### Core Rules (CRITICAL):
+
+**1. WTT to Strong = BEARISH Pressure** ✓
+```
+Yesterday: WTT (weak toward top)
+Today: Becomes STRONG (second highest <75%)
+= Market turned BEARISH
+```
+*Why?* The potential to go UP (WTT) failed. The Bullish pressure vanished. So Bears take control (Bearish).
+
+**2. WTT se Strong = BEARISH Pressure** ✓
+```
+Current: Shows WTT (Bulllish potential)
+Then: Becomes Strong (Bullish potential dies)
+= BEARISH momentum
+```
+
+**3. Shifting on WTT = BULLISH Pressure**
+```
+Market shifts TO a WTT level
+= BULLISH signal (Market moved UP to the new level)
+```
+
+**4. Support WTT = BULLISH Potential (initially)**
+```
+Support usually WTT means it wants to shift up (Bullish).
+BUT if it FAILS to shift and becomes STRONG -> BEARISH.
+```
+
+**5. Resistance WTT = BULLISH Presure**
+```
+Resistance WTT means it wants to shift up (Bullish).
+If it shifts -> Bull Run possibilities.
+```
+
+## WTT Shifting Scenarios
+
+### Scenario A: Shift to WTT Level & Again WTT = Bull Run
+
+```
+Step 1: Resistance at 17500 (strong)
+Step 2: Resistance SHIFTS to 17550 (WTT level)
+Step 3: At 17550, it shows WTT again (at 17600)
+
+Result: BULL RUN (strong bullish)
+
+Why: Market shifted UP and wants to go UP AGAIN = major uptrend
+```
+
+### Scenario B: WTT to Strong = BEARISH (CRITICAL RULE)
+
+**WARNING:** Do not confuse this! 
+- Many think "Strong means market goes up". NO.
+- **Resistance Becoming Strong** means "The door to go UP is CLOSED".
+- So WTT (Door Open) → Strong (Door Closed) = **BEARISH**.
+
+**Example:**
+```
+9:15 AM: Resistance at 17500 shows WTT at 17550 (weak toward top)
+         17500 - 10L, 17550 - 8L (80%)
+         *Potential to go UP is there.*
+         
+10:00 AM: Same resistance becomes STRONG
+          17500 - 12L, 17550 - 6L (50%)
+          
+Result: BEARISH Pressure
+
+Why: The door to go UP is closed. Resistance became strong. Market falls.
+```
+
+## Anti-Hallucination Guide
+
+1. **WTT means "Weak Towards Top"**, NOT "Weakness To Trade". Never use "Weakness To Trade".
+2. **Resistance WTT to Strong is NOTICEABLY BEARISH.**
+   - Do NOT say it is bullish because "resistance became strong".
+   - It is bearish because "The weakness (upward potential) died".
+3. **Analogy:**
+   - WTT = Door is creaking at the top. (Bullish hope).
+   - Strong = Door is reinforced with steel. (Hope dead -> Bearish).
+
+### Scenario C: WTT se Strong = BEARISH
+
+```
+Continuous monitoring:
+Currently WTT → Then becomes Strong = BEARISH
+
+Real Example:
+9:30 - WTT present (Bulllish hope)
+10:00 - Strong now (Hope dead)
+
+Market Direction: DOWN ↓
+```
+
+## Game of Percentage with WTT
+
+### WTT Percentage Increasing = BULLISH Pressure
+
+```
+Time 1: WTT at 75%
+Time 2: WTT at 80%
+Time 3: WTT at 85%
+
+= Weakness GROWING toward TOP
+= More chance to shift UP
+= BULLISH pressure
+```
+
+### WTT Percentage Decreasing = BEARISH Pressure
+
+```
+Time 1: WTT at 85%
+Time 2: WTT at 78%
+Time 3: WTT at 70% (no longer WTT!)
+
+= Weakness REDUCING
+= Chance to shift UP is dying
+= BEARISH pressure
+```
+
+### WTT Percentage Stable = Range Bound
+
+## Summary Table
+
+| Scenario | Pressure | Meaning |
+|----------|----------|---------|
+| **WTT present** | BULLISH Potential | Wants to go up |
+| **WTT % Increasing** | BULLISH | Probability to go up increasing |
+| **WTT % Decreasing** | BEARISH | Probability to go up decreasing |
+| **WTT to Strong** | BEARISH | Failed to go up, now will fall |
+| **Shift to WTT** | BULLISH | Successfully moved up |
+| **Shift & again WTT** | BULL RUN | Keep moving up |
+
+## Natural Weakness - Important Exception
+
+**Rule:** If weakness appears exactly where shifting happened FROM, ignore it.
+
+**Example:**
+```
+Before: Resistance at 17550
+After: Resistance SHIFTS to 17500 (Down shift)
+
+Now 17550 shows WTT
+= This is NATURAL WEAKNESS (ignore it)
+
+Why: Old resistance level naturally weakens/lingers after shift
+```

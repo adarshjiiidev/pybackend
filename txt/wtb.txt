@@ -1,0 +1,266 @@
+# WTB (Weak Towards Bottom) - Complete Guide
+
+## Definition
+
+**WTB = Weak Towards Bottom**
+
+**Technical:** Second highest OI/Volume is ≥75% of the highest, located at BOTTOM side (smaller strike prices) near imaginary line
+
+**Simple:** When market shows weakness toward bottom/legs side
+
+## The 75% Rule
+
+**Formula:**
+```
+If Support/Resistance = 100% (highest value)
+Then WTB must be ≥75% at BOTTOM side
+```
+
+**Example:**
+```
+Support at 17450: 10 Lakh OI (100%)
+Strike at 17400: 8 Lakh OI (80% of 10L)
+                  ↑
+            This is ≥75%, so WTB exists!
+            
+WTB confirmed at 17400
+```
+
+## WTB in Different Contexts
+
+### 1. Support WTB (Legs Side Weakness)
+
+**Scenario:** Support shows weakness toward bottom
+
+```
+Market @ 17500
+
+Put Side:
+17450 - 10L OI ← Support (100%)
+17400 - 8L OI  ← WTB (80% ≥ 75%) ✓
+17350 - 3L OI  ← Too weak
+
+Support WTB confirmed
+```
+
+**Pressure:** BEARISH pressure  
+**Meaning:** Traders not interested at bottom side, market might go down further
+
+**Example with Sheesh Aasan:**
+```
+Support (Legs) pushing UP with 10 people
+But 8 people also gathering at even LOWER level
+= Legs getting weaker
+= Market might fall toward legs
+```
+
+### 2. Resistance WTB (Head Side Shows Bottom Weakness)
+
+**Scenario:** Resistance shows weakness toward bottom
+
+```
+Market @ 17500
+
+Call Side:
+17550 - 12L OI ← Resistance (100%)
+17500 - 9.5L OI ← WTB (79% ≥ 75%) ✓
+1746050 - 4L OI  ← Too weak
+
+Resistance WTB confirmed
+```
+
+**Pressure:** BULLISH pressure  
+**Meaning:** Resistance weakening downward = market wants to go UP
+
+**Example:**
+```
+People pushing DOWN from head (resistance) = 12
+But people also pushing from slightly lower = 9.5
+= Head group getting divided/weaker
+= Market can break through and go UP
+```
+
+## WTB Market Pressure Rules
+
+### Core Rules (CRITICAL):
+
+**1. WTB to Strong = BULLISH Pressure** ✓
+```
+Yesterday: WTB (weak toward bottom)
+Today: Becomes STRONG (second highest <75%)
+= Market turned BULLISH
+```
+
+**2. WTB se Strong = BULLISH Pressure** ✓
+```
+Current: Shows WTB
+Then: Becomes Strong
+= BULLISH momentum
+```
+
+**3. Shifting on WTB = BEARISH Pressure**
+```
+Market shifts TO a WTB level
+= BEARISH signal
+```
+
+**4. Support WTB = BEARISH Pressure**
+```
+Support itself shows WTB
+= Support getting weak
+= Market might break down
+```
+
+**5. Resistance WTB = BULLISH Pressure**
+```
+Resistance shows WTB
+= Resistance getting weak
+= Market might break up
+```
+
+## WTB Shifting Scenarios
+
+### Scenario A: Shift to WTB Level & Again WTB = Blood Bath
+
+```
+Step 1: Resistance at 17550 (strong)
+Step 2: Resistance SHIFTS to 17500 (WTB level)
+Step 3: At 17500,  shows WTB again
+
+Result: BLOOD BATH (strong bearish)
+
+Why: Market shifted to weakness AND stayed weak = major downtrend
+```
+
+### Scenario B: WT to Strong = BULLISH
+
+**Example:**
+```
+9:15 AM: Support at 17450 shows WTB (weak)
+         17450 - 10L, 17400 - 8L (80%)
+         
+10:00 AM: Same support becomes STRONG
+          17450 - 12L, 17400 - 6L (50%)
+          
+Result: BULLISH Pressure
+
+Why: Weakness disappeared = strength returned = UP movement
+```
+
+### Scenario C: WTB se Strong = BULLISH
+
+```
+Continuous monitoring:
+Currently WTB → Then becomes Strong = BULLISH
+
+Real Example:
+9:30 - WTB present (17450: 10L, 17400: 8L)
+10:00 - Strong now (17450: 15L, 17400: 9L = 60%)
+
+Market Direction: UP ↑
+```
+
+## Game of Percentage with WTB
+
+### WTB Percentage Increasing = BEARISH Pressure
+
+```
+Time 1: WTB at 75%
+Time 2: WTB at 80%
+Time 3: WTB at 85%
+
+= Weakness GROWING
+= More BEARISH pressure
+```
+
+**Example:**
+```
+10:00 - Support 17450 (10L), WTB 17400 (7.5L = 75%)
+11:00 - Support 17450 (10L), WTB 17400 (8.5L = 85%)
+
+WTB percentage increased 75% → 85%
+= BEARISH signal strengthening
+```
+
+### WTB Percentage Decreasing = BULLISH Pressure
+
+```
+Time 1: WTB at 85%
+Time 2: WTB at 78%
+Time 3: WTB at 70% (no longer WTB!)
+
+= Weakness REDUCING
+= More BULLISH pressure
+```
+
+**Example:**
+```
+10:00 - Support 17450 (10L), WTB 17400 (8.5L = 85%)
+11:00 - Support 17450 (10L), WTB 17400 (7.0L = 70%)
+
+WTB percentage decreased 85% → 70%
+= BULLISH signal strengthening
+```
+
+### WTB Percentage Stable = Range Bound
+
+```
+Time 1: WTB at 77%
+Time 2: WTB at 76%
+Time 3: WTB at 78%
+
+= Weakness STABLE
+= Market in RANGE
+```
+
+## Important Corrections
+
+### ❌ WRONG Understanding:
+- "WTB = Bearish always"
+
+### ✓ CORRECT Understanding:
+- **WTB itself** = Shows location of weakness
+- **WTB TO Strong** = BULLISH (weakness becoming strength)
+- **WTB SE Strong** = BULLISH (weakness to strength)
+- **Shift TO WTB** = BEARISH (new weakness appearing)
+- **Support showing WTB** = BEARISH (support weak)
+- **Resistance showing WTB** = BULLISH (resistance weak)
+
+## Quick Reference Table
+
+| Scenario | Pressure | Example |
+|----------|----------|---------|
+| Support WTB | BEARISH | Support weakening down |
+| Resistance WTB | BULLISH | Resistance weakening down |
+| WTB to Strong | BULLISH | Weakness disappeared |
+| WTB se Strong | BULLISH | From weak to strong |
+| Shift to WTB level | BEARISH | Moving to weak zone |
+| WTB % increasing | BEARISH | Weakness growing |
+| WTB % decreasing | BULLISH | Weakness shrinking |
+| WTB % stable | NEUTRAL | Range bound |
+
+## Natural Weakness - Important Exception
+
+**Rule:** If weakness appears exactly where shifting happened FROM, ignore it (natural weakness)
+
+**Example:**
+```
+Before: Resistance at 17500
+After: Resistance SHIFTS to 17550
+
+Now 17500 shows WTB
+= This is NATURAL WEAKNESS (ignore it)
+
+Why: Old resistance level naturally weakens after shift
+```
+
+**Another Example:**
+```
+Before: Support at 17500
+After: Support SHIFTS to 17450
+
+Now 17500 shows WTT
+= Natural weakness (ignore)
+
+Why: Old support naturally shows weakness
+```
