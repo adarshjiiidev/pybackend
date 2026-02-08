@@ -69,15 +69,15 @@ Call Side:
 Resistance WTB confirmed
 ```
 
-**Pressure:** BULLISH pressure  
-**Meaning:** Resistance weakening downward = market wants to go UP
+**Pressure:** Bearish pressure  
+**Meaning:** Resistance weakening downward = market wants to go Down
 
 **Example:**
 ```
 People pushing DOWN from head (resistance) = 12
 But people also pushing from slightly lower = 9.5
 = Head group getting divided/weaker
-= Market can break through and go UP
+= Market can break through and go Down
 ```
 
 ## WTB Market Pressure Rules
@@ -111,11 +111,11 @@ Support itself shows WTB
 = Market might break down
 ```
 
-**5. Resistance WTB = BULLISH Pressure**
+**5. Resistance WTB = BEARISH Pressure**
 ```
 Resistance shows WTB
 = Resistance getting weak
-= Market might break up
+= Market might break down
 ```
 
 ## WTB Shifting Scenarios
@@ -132,7 +132,7 @@ Result: BLOOD BATH (strong bearish)
 Why: Market shifted to weakness AND stayed weak = major downtrend
 ```
 
-### Scenario B: WT to Strong = BULLISH
+### Scenario B: WTB to Strong = BULLISH
 
 **Example:**
 ```

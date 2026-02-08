@@ -1,8 +1,16 @@
-"""Data models for Daaddys AI backend."""
+"""Data models for Daddy's AI backend."""
 
 from .agent_state import AgentState, AgentMode
 from .api_models import ChatRequest, SessionResponse, ConversationHistoryResponse
-from .db_models import ConversationMessage, UserSession, MarketDataCache
+from .db_models import (
+    ConversationMessage,
+    UserSession,
+    MarketDataCache,
+    User,
+    VerificationToken,
+    TokenBlacklist,
+    OTP
+)
 
 __all__ = [
     "AgentState",
@@ -12,5 +20,9 @@ __all__ = [
     "ConversationHistoryResponse",
     "ConversationMessage",
     "UserSession",
-    "MarketDataCache"
+    "MarketDataCache",
+    "User",
+    "VerificationToken",
+    "TokenBlacklist",
+    "OTP"
 ]

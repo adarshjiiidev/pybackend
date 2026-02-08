@@ -24,7 +24,7 @@ class ExplainerAgent:
     def __init__(self):
         self.client = AsyncGroq(api_key=settings.groq_api_key)
         self.model = settings.get_model_for_task(ModelType.CREATIVE)
-        self.temperature = 0.3  # LOW temperature to prevent hallucination
+        self.temperature = 0.2  # VERY LOW temperature to prevent hallucination
         self.max_tokens = settings.get_max_tokens_for_task(ModelType.CREATIVE)
         self.kb_rag = get_kb_rag()
         
@@ -38,7 +38,14 @@ class ExplainerAgent:
         ]
     
     def _check_domain_query(self, query: str) -> bool:
-        """Check if query contains domain-specific keywords."""
+        """Check if query contains domain-specific keywords or financial terms."""
+        from ..tools.financial_terms import is_financial_term
+        
+        # Check if it's a known financial term
+        if is_financial_term(query):
+            return True
+        
+        # Check domain-specific keywords
         query_lower = query.lower()
         return any(keyword in query_lower for keyword in self.domain_keywords)
     
@@ -47,26 +54,42 @@ class ExplainerAgent:
         Provide educational explanations with conversation memory and knowledge base usage.
         """
         query = state["query"]
+        from ..tools.financial_terms import is_financial_term, get_term_definition
         
-        # Check if this is a domain-specific query
+        # Check if this is a known financial term or domain-specific query
+        is_known_financial_term = is_financial_term(query)
         is_domain_query = self._check_domain_query(query)
         
-        # ALWAYS get knowledge base context for domain queries
+        # ALWAYS search knowledge base for financial terms and domain queries
         kb_context = ""
-        if is_domain_query:
-            kb_context = self.kb_rag.get_relevant_context(query, max_chars=2500)
-            logger.info(f"Retrieved knowledge base context for domain query: {len(kb_context)} chars")
+        kb_sources = []
         
-        system_prompt = """You are the educational module of Daddys AI, a financial intelligence system built by Adarsh, a 14-year-old student at Daddys International School.
+        if is_known_financial_term or is_domain_query:
+            # Search knowledge base
+            results = self.kb_rag.search(query, top_k=2)
+            if results:
+                logger.info(f"📚 Found {len(results)} KB files for query")
+                kb_sources = [f"{r['title']} ({r['filename']})" for r in results]
+                
+                # Build context with source files
+                kb_parts = []
+                for result in results:
+                    kb_parts.append(f"\n## Source: {result['title']} ({result['filename']})\n{result['content'][:1500]}")
+                kb_context = "\n---\n**Knowledge Base Context:**\n" + "\n".join(kb_parts)
+            else:
+                logger.warning(f"⚠️ No KB results for financial term: {query}")
+        
+        system_prompt = f"""You are the educational module of Daddys AI, a financial intelligence system built by Adarsh, a 14-year-old student at Daddys International School.
 
 **Your Mission:** Make complex finance simple and accessible for Indian retail investors.
 
 **CRITICAL RULES:**
-1. For domain-specific terms (WTB, WTT, LTP, shifting, etc.), ONLY use the Knowledge Base Context provided below
-2. NEVER make up definitions for technical terms
-3. If Knowledge Base Context is provided, cite it directly and accurately
-4. If you don't have verified information, say "I need to search the knowledge base for this"
-5. For follow-up questions like "summarize it", refer to the conversation history
+1. **ALWAYS cite the source file** when answering from Knowledge Base
+2. For domain-specific terms (WTB, WTT, LTP, etc.), ONLY use the Knowledge Base Context provided
+3. **Format:** Start your response with "📖 Source: [filename]" when using KB
+4. NEVER make up definitions for technical terms
+5. If you don't have verified information, say "I need to search the knowledge base for this"
+6. For follow-up questions like "summarize it", refer to the conversation history
 
 **Teaching Style:**
 - Use simple language and real-world analogies
@@ -75,12 +98,9 @@ class ExplainerAgent:
 - Use ₹ for Indian currency
 - Be conversational yet professional
 - Remember context from previous messages in this conversation
-- Add disclaimers only when giving specific trading recommendations
 
-**Example - WTB (CORRECT):**
-- WTB = Weak Towards Bottom
-- It's when second highest OI is >=75% at BOTTOM side
-- Related to Option Chain analysis and market pressure
+**Knowledge Base Sources Available:**
+{", ".join(kb_sources) if kb_sources else "None"}
 
 If Knowledge Base Context is missing for a domain term, acknowledge it instead of guessing."""
 
@@ -91,13 +111,13 @@ If Knowledge Base Context is missing for a domain term, acknowledge it instead o
         conversation_history = state.get("conversation_history", [])
         if conversation_history:
             logger.info(f"Explainer: Including {len(conversation_history)} messages for context")
-            messages.extend(conversation_history[-10:])  # Last 10 for context
+            for msg in conversation_history[-5:]:  # Last 5 messages
+                messages.append({"role": msg["role"], "content": msg["content"]})
         
         # Add current query with KB context if available
+        user_message = query
         if kb_context:
-            user_message = f"{kb_context}\n\nBased on the above knowledge base information, {query}"
-        else:
-            user_message = query
+            user_message = f"{kb_context}\n\n---\nUser Query: {query}\n\nProvide a clear explanation and CITE THE SOURCE FILE."
         
         messages.append({"role": "user", "content": user_message})
         
@@ -106,7 +126,7 @@ If Knowledge Base Context is missing for a domain term, acknowledge it instead o
                 model=self.model,
                 messages=messages,
                 temperature=self.temperature,
-                max_completion_tokens=self.max_tokens
+                max_tokens=self.max_tokens
             )
             
             explanation = response.choices[0].message.content

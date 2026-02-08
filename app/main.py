@@ -5,6 +5,7 @@ Provides streaming chat endpoint and session management.
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from fastapi.responses import StreamingResponse
 from contextlib import asynccontextmanager
 import logging
@@ -18,6 +19,10 @@ from .models import ChatRequest, SessionResponse, ConversationHistoryResponse
 from .graph import run_agent_workflow
 from .database import ConversationRepository, SessionRepository
 from .utils import stream_groq_response
+from .api.auth import router as auth_router
+from .api.chat import router as chat_router
+from .api.transcribe import router as transcribe_router
+from .api.share import router as share_router  # New share endpoints
 
 # Configure logging
 logging.basicConfig(
@@ -48,20 +53,33 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(
-    title="Daaddys AI",
-    description="Autonomous Financial AI Agent for Indian Stock Markets and Crypto",
-    version="0.1.0",
+    title="Daddy's AI Backend",
+    description="Multi-agent financial intelligence system for Indian markets",
+    version="1.0.0",
     lifespan=lifespan
 )
 
-# Add CORS middleware
+# Session middleware (required for OAuth)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key="your-secret-key-min-32-chars-long-for-session-data-encryption"
+)
+
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=["*"],  # Allow all origins for development
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
+
+# Include routers
+app.include_router(auth_router)
+app.include_router(chat_router)
+app.include_router(transcribe_router)
+app.include_router(share_router)  # Public sharing endpoints
 
 
 @app.get("/")

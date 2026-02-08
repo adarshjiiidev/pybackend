@@ -25,6 +25,7 @@ class AgentState(TypedDict):
     
     # User input
     query: str
+    images: Optional[list[str]]  # Base64 encoded images
     mode: AgentMode
     session_id: str
     

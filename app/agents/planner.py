@@ -68,7 +68,7 @@ Keep it focused - quality over quantity."""
                     {"role": "user", "content": f"Create research plan for: {query}"}
                 ],
                 temperature=self.temperature,
-                max_completion_tokens=self.max_tokens,
+                max_tokens=self.max_tokens,
                 response_format={"type": "json_object"}
             )
             

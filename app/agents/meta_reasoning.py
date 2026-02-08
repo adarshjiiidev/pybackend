@@ -92,7 +92,12 @@ class DeepReasoningAgent:
             conversation_history = state.get("conversation_history", [])
             if conversation_history:
                 logger.info(f"Including {len(conversation_history)} messages from conversation history")
-                messages.extend(conversation_history[-10:])  # Last 10 messages for context
+                # Filter out 'images' field as Groq API doesn't support it
+                filtered_history = []
+                for msg in conversation_history[-10:]:  # Last 10 messages for context
+                    filtered_msg = {"role": msg["role"], "content": msg["content"]}
+                    filtered_history.append(filtered_msg)
+                messages.extend(filtered_history)
             
             # Add current query
             messages.append({"role": "user", "content": query})
@@ -114,7 +119,7 @@ class DeepReasoningAgent:
                     "model": self.model,
                     "messages": messages,
                     "temperature": self.temperature,
-                    "max_completion_tokens": self.max_tokens,
+                    "max_tokens": self.max_tokens,
                 }
                 
                 # Add tools only if: (1) settings allow AND (2) we haven't just executed tools
@@ -181,7 +186,7 @@ class DeepReasoningAgent:
                     model=self.model,
                     messages=messages,
                     temperature=self.temperature,
-                    max_completion_tokens=self.max_tokens
+                    max_tokens=self.max_tokens
                 )
                 
                 state["final_response"] = final_response.choices[0].message.content

@@ -14,6 +14,11 @@ This file contains the **HIGHEST PRIORITY** rules. Any logic in other files that
   - **CORRECT:** Resistance WTT (Weak Toward Top) → Strong = **BEARISH**. (Because the "Top" weakness died).
 - **NEVER** say "Support WTT to Strong is Bullish".
   - **CORRECT:** Support WTT → Strong = **BEARISH**.
+  Make sure that wherever wtb is shows bearsih pressure
+  and whereever wtt is shows bullish pressure either support or resistance
+
+  The wtb and wtt is another thing and strong from wtb and wtt is another thing
+
 
 ## 3. The "Strong" Transition Logic & Shift Reversals
 - **Resistance WTT → Strong** = **BEARISH** (Critical).

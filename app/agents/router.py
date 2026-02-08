@@ -28,9 +28,20 @@ class RouterAgent:
         """
         Classify user intent and select appropriate agent mode.
         Also extract entities with conversation context awareness.
+        If images are present, set flag for vision processing.
         """
         query = state["query"]
+        images = state.get("images", [])
         conversation_history = state.get("conversation_history", [])
+        
+        # If images present, mark for vision processing
+        if images:
+            logger.info(f"🖼️ Images detected ({len(images)}), marking for vision processing")
+            state["has_vision_content"] = True
+            # For image queries, prefer explainer mode for better descriptions
+            state["selected_mode"] = AgentMode.EXPLAINER.value
+            state["extracted_entities"] = {}
+            return state
         
         # Detect if deep search / research loop should be activated
         should_research = self._should_trigger_research(query, state)
@@ -87,8 +98,16 @@ Classify the query and respond with ONLY the mode name."""
             state["extracted_entities"] = {}
             return state
     
+    
     async def _extract_entities_with_context(self, query: str, conversation_history: list) -> dict:
         """Extract entities using conversation history for context (resolves pronouns like 'it')."""
+        from ..tools.financial_terms import is_financial_term
+        
+        # Check if query is about a financial term (not a stock symbol)
+        if is_financial_term(query):
+            logger.info(f"📚 Detected financial term query: {query}")
+            return {"symbols": [], "timeframe": None, "amount": None}
+        
         # Build context from recent conversation
         context = ""
         if conversation_history:
@@ -99,13 +118,15 @@ Classify the query and respond with ONLY the mode name."""
         
         prompt = f"""Extract stock symbols from the query. If query uses pronouns (it, that, this), check conversation history.
 
+IMPORTANT: Do NOT extract symbols if the query is asking for definitions or explanations of financial terms/acronyms.
+
 Conversation History:
 {context}
 
 Current Query: {query}
 
 Respond with JSON: {{"symbols": ["SYMBOL1"], "timeframe": "1y", "amount": null}}
-If no symbols, return {{"symbols": [], "timeframe": null, "amount": null}}"""
+If no symbols or if asking for term definition, return {{"symbols": [], "timeframe": null, "amount": null}}"""
 
         try:
             response = await self.client.chat.completions.create(
@@ -119,9 +140,17 @@ If no symbols, return {{"symbols": [], "timeframe": null, "amount": null}}"""
             import json
             entities = json.loads(response.choices[0].message.content)
             
-            # Normalize symbols to uppercase
+            # Normalize symbols to uppercase and filter out financial terms
             if "symbols" in entities and entities["symbols"]:
-                entities["symbols"] = [s.upper() for s in entities["symbols"]]
+                filtered_symbols = []
+                for s in entities["symbols"]:
+                    s_upper = s.upper()
+                    if not is_financial_term(s_upper):
+                        filtered_symbols.append(s_upper)
+                    else:
+                        logger.info(f"🚫 Filtered out financial term: {s_upper}")
+                
+                entities["symbols"] = filtered_symbols
             
             return entities
         except Exception as e:

@@ -34,7 +34,9 @@ class Settings(BaseSettings):
     model_fast: str = "llama-3.1-8b-instant"  # Quick routing (14.4K RPD, 6K TPM)
     model_analysis: str = "llama-3.3-70b-versatile"  # Market analysis (1K RPD, 12K TPM)
     model_creative: str = "llama-3.3-70b-versatile"  # Educational content (UPDATED: 3.1 decommissioned)
+    model_creative: str = "llama-3.3-70b-versatile"  # Educational content (UPDATED: 3.1 decommissioned)
     model_router: str = "llama-3.1-8b-instant"  # Fast intent classification
+    model_vision: str = "meta-llama/llama-4-scout-17b-16e-instruct"  # Vision & Multimodal tasks
     
     # Groq Reasoning Parameters (for GPT-OSS models)
     reasoning_effort_deep: Literal["low", "medium", "high"] = "high"  # Max reasoning for 120B
@@ -68,6 +70,29 @@ class Settings(BaseSettings):
     serpapi_key: Optional[str] = None  # For custom web search (if not using Compound)
     news_api_key: Optional[str] = None  # For news fetching
     
+    # Email/SMTP Configuration (supports both formats)
+    email_server: bool = True
+    email_server_host: str = "smtp.gmail.com"
+    email_server_port: int = 587
+    email_server_user: str = ""
+    email_server_password: str = ""
+    email_from: str = ""
+    email_server_secure: bool = False
+    
+    # Legacy SMTP settings (fallback)
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_email: str = ""
+    smtp_password: str = ""
+    smtp_from_name: str = "Daddy's AI"
+    
+    # Google OAuth
+    google_client_id: Optional[str] = None
+    google_client_secret: Optional[str] = None
+    
+    # JWT Secret
+    jwt_secret: str = ""
+    
     # Database Configuration
     mongodb_url: str = "mongodb://localhost:27017"
     mongodb_db_name: str = "daddys_ai"
@@ -95,7 +120,8 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
-        extra="ignore"
+        extra="ignore",
+        protected_namespaces=()  # Allow model_ prefix for our settings
     )
     
     def get_model_for_task(self, task_type: ModelType) -> str:

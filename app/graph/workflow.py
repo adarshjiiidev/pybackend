@@ -211,7 +211,8 @@ async def run_agent_workflow(
     query: str,
     mode: str = "auto",
     session_id: str = None,
-    conversation_history: list = None
+    conversation_history: list = None,
+    images: list = None
 ) -> AgentState:
     """
     Execute the agent workflow.
@@ -221,6 +222,7 @@ async def run_agent_workflow(
         mode: Agent mode (auto, market_research, etc.)
         session_id: Session identifier
         conversation_history: Previous conversation messages
+        images: List of base64 encoded images
     
     Returns:
         Final agent state with response
@@ -228,6 +230,7 @@ async def run_agent_workflow(
     # Initialize state
     initial_state: AgentState = {
         "query": query,
+        "images": images,
         "mode": AgentMode(mode) if mode != "auto" else AgentMode.AUTO,
         "session_id": session_id or "default",
         "selected_mode": None,

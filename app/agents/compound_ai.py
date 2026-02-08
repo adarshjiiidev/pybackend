@@ -55,7 +55,7 @@ You're optimized for Indian markets - use NSE/BSE data and ₹ currency."""
                     {"role": "user", "content": query}
                 ],
                 temperature=self.temperature,
-                max_completion_tokens=self.max_tokens
+                max_tokens=self.max_tokens
             )
             
             message = response.choices[0].message

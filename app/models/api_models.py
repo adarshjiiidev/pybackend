@@ -14,6 +14,7 @@ class ChatRequest(BaseModel):
     mode: str = Field(default="auto", description="Agent mode: auto, market_research, realtime_analysis, portfolio, explainer, crypto")
     session_id: Optional[str] = Field(default=None, description="Session ID for conversation continuity")
     enable_deep_search: bool = Field(default=False, description="Enable autonomous research loop for deep analysis")
+    images: Optional[list[str]] = Field(default=None, description="List of base64 encoded images")
     
     class Config:
         json_schema_extra = {

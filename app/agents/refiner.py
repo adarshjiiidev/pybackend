@@ -65,7 +65,7 @@ Synthesize findings into final answer."""
                     }
                 ],
                 temperature=self.temperature,
-                max_completion_tokens=self.max_tokens
+                max_tokens=self.max_tokens
             )
             
             final_answer = response.choices[0].message.content
