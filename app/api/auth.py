@@ -458,11 +458,11 @@ async def google_callback(request: Request):
         )
         
         # Redirect to frontend with tokens
-        frontend_url = f"http://localhost:3000/auth/callback?access_token={access_token}&refresh_token={refresh_token}"
+        callback_url = f"{settings.frontend_url}/auth/callback?access_token={access_token}&refresh_token={refresh_token}"
         
-        return RedirectResponse(url=frontend_url)
+        return RedirectResponse(url=callback_url)
         
     except Exception as e:
         logger.error(f"Google OAuth callback error: {e}")
         # Redirect to frontend with error
-        return RedirectResponse(url="http://localhost:3000/?error=oauth_failed")
+        return RedirectResponse(url=f"{settings.frontend_url}/?error=oauth_failed")

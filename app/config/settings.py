@@ -93,6 +93,9 @@ class Settings(BaseSettings):
     # JWT Secret
     jwt_secret: str = ""
     
+    # Frontend URL (for OAuth redirects)
+    frontend_url: str = "http://localhost:3000"
+    
     # Database Configuration
     mongodb_url: str = "mongodb://localhost:27017"
     mongodb_db_name: str = "daddys_ai"
