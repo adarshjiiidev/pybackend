@@ -175,14 +175,48 @@ class FinancialTools:
     
     @staticmethod
     async def search_web(query: str, num_results: int = 5) -> dict[str, Any]:
-        """Web search (simulated for MVP)."""
-        return {
-            "query": query,
-            "results": [
-                {"title": f"Search result for {query}", "url": "#", "snippet": "Placeholder"}
-            ],
-            "note": "Web search requires SerpAPI key. This is simulated data for MVP."
-        }
+        """Real web search using Groq Compound AI with built-in search capability."""
+        try:
+            from groq import AsyncGroq
+            from ..config import settings, ModelType
+            
+            client = AsyncGroq(api_key=settings.groq_api_key)
+            model = settings.get_model_for_task(ModelType.COMPOUND)
+            
+            # Use Compound AI which has built-in web search
+            response = await client.chat.completions.create(
+                model=model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a web search assistant. Search the web and provide accurate, current information with sources. Be concise but comprehensive."
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Search the web and provide information about: {query}"
+                    }
+                ],
+                temperature=0.3,
+                max_tokens=1024
+            )
+            
+            content = response.choices[0].message.content
+            
+            return {
+                "query": query,
+                "search_results": content,
+                "source": "Compound AI Web Search",
+                "model": model,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in search_web (Compound AI): {e}")
+            return {
+                "error": str(e),
+                "query": query,
+                "fallback": "Please try rephrasing your query or check your internet connection"
+            }
     
     @staticmethod
     async def calculate_portfolio_optimization(
@@ -245,9 +279,17 @@ async def execute_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, A
 
 
 async def search_knowledge_base_tool(query: str) -> dict[str, Any]:
-    """Search knowledge base tool wrapper."""
+    """Search knowledge base tool wrapper with fallback indicator."""
     from ..rag import search_knowledge_base
-    return await search_knowledge_base(query)
+    result = await search_knowledge_base(query)
+    
+    # Add indicator if no results found to trigger web search fallback
+    if not result or not result.get('results') or len(result.get('results', [])) == 0:
+        result = result or {}
+        result['fallback_needed'] = True
+        result['suggestion'] = "No results in knowledge base. Use search_web to find this information on the internet."
+    
+    return result
 
 
 async def scrape_with_puppeteer_tool(endpoint: str, params: dict[str, Any]) -> dict[str, Any]:

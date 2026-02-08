@@ -6,8 +6,8 @@ These are knowledge base terms that require explainer/educational responses.
 # Financial Terms - Common acronyms and phrases in finance
 FINANCIAL_TERMS = {
     # Portfolio & Investment Terms
-    "WTB": "Willing To Buy",
-    "WTS": "Willing To Sell",
+    "WTB": "Weak Towards Bottom",
+    "WTS": "Weak Towards Top",
     "HODL": "Hold On for Dear Life",
     "DCA": "Dollar Cost Averaging",
     "NAV": "Net Asset Value",
@@ -106,6 +106,21 @@ FINANCIAL_TERMS = {
     "SLR": "Statutory Liquidity Ratio",
     "RBI": "Reserve Bank of India",
     "NBFC": "Non-Banking Financial Company",
+    
+    # Trading Tools & Features
+    "LTP": "Last Traded Price / LTP Calculator",
+    "LTP CALCULATOR": "LTP Calculator - Trading Analysis Tool",
+    "LTP BLAST": "LTP Calculator Intraday Feature",
+    "LTP SWING": "LTP Calculator Positional Feature",
+    "WTT": "Willing To Trade",
+    "EOR": "Extension of Resistance",
+    "EOS": "Extension of Support",
+    "SOC": "State of Confusion",
+    "COA": "Chart of Accuracy",
+    "MAX PAIN": "Options Max Pain Level",
+    "SCENARIO": "Trading Scenario Analysis",
+    "SHIFTING": "Market Pressure Shifting",
+    "PRESSURE": "Market Pressure Analysis",
 }
 
 # Additional contextual terms (lowercase) that might appear in queries

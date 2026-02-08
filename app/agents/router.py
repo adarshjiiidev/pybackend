@@ -118,7 +118,11 @@ Classify the query and respond with ONLY the mode name."""
         
         prompt = f"""Extract stock symbols from the query. If query uses pronouns (it, that, this), check conversation history.
 
-IMPORTANT: Do NOT extract symbols if the query is asking for definitions or explanations of financial terms/acronyms.
+IMPORTANT: Do NOT extract symbols if the query is asking for:
+- Definitions or explanations of financial terms/acronyms
+- Trading tools like LTP Calculator, WTB/WTT, COA, SOC, EOR, Max Pain
+- Features, strategies, or trading concepts
+- Educational content about market terminology
 
 Conversation History:
 {context}
@@ -126,7 +130,7 @@ Conversation History:
 Current Query: {query}
 
 Respond with JSON: {{"symbols": ["SYMBOL1"], "timeframe": "1y", "amount": null}}
-If no symbols or if asking for term definition, return {{"symbols": [], "timeframe": null, "amount": null}}"""
+If no symbols or if asking for term definition/tool explanation, return {{"symbols": [], "timeframe": null, "amount": null}}"""
 
         try:
             response = await self.client.chat.completions.create(
