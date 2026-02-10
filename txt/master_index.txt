@@ -4,6 +4,7 @@ This directory contains the core knowledge for the Finance Agent.
 
 ## 1. Fundamentals & Basics
 - **about.txt**: Vinay Sir, Daddy's International School, Mission.
+- **trading_terms.txt**: LTP definition, common trading terms, LTP Calculator overview.
 - **support_resistance_basics.txt**: The "Sheesh Aasan" concept, Head/Legs analogy, Pushing logic.
 - **imaginary_line.txt**: ITM/OTM definition, dividing line importance.
 - **strong.txt**: Definition of Strong market (Second highest < 75%).
@@ -37,6 +38,8 @@ This directory contains the core knowledge for the Finance Agent.
 ## Usage Guide for AI
 
 1. **Step 1:** ALWAYS check *constraints.txt* first.
-2. **Step 2:** For LTP Logic, check *basics*, *wtb/wtt*, *shifting*, *soc*, and *coa_1_0*.
-3. **Step 3:** For Confirmation, use *coa_2_0*.
-4. **Step 4:** For General/Stocks, use *general_finance* and *technical_analysis*.
+2. **Step 2:** For basic terms (LTP, CMP, etc.), check *trading_terms.txt* and *general_finance.txt*.
+3. **Step 3:** For LTP Calculator features, check *ltp_features.txt* and *ai_ltp.txt*.
+4. **Step 4:** For LTP Logic & Scenarios, check *basics*, *wtb/wtt*, *shifting*, *soc*, and *coa_1_0*.
+5. **Step 5:** For Confirmation, use *coa_2_0*.
+6. **Step 6:** For General/Stocks, use *general_finance* and *technical_analysis*.

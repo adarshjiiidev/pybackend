@@ -16,7 +16,6 @@ from ..agents import (
     RealtimeAnalysisAgent,
     PortfolioAgent,
     ExplainerAgent,
-    CryptoAgent,
     VerifierAgent
 )
 from ..config import settings
@@ -32,7 +31,7 @@ market_research_agent = MarketResearchAgent()
 realtime_agent = RealtimeAnalysisAgent()
 portfolio_agent = PortfolioAgent()
 explainer_agent = ExplainerAgent()
-crypto_agent = CryptoAgent()
+# REMOVED: crypto_agent = CryptoAgent()  # get_crypto_data not available
 verifier_agent = VerifierAgent()
 
 
@@ -79,10 +78,7 @@ async def explainer_node(state: AgentState) -> AgentState:
     return await explainer_agent.analyze(state)
 
 
-async def crypto_node(state: AgentState) -> AgentState:
-    """Crypto intelligence node - cryptocurrency analysis."""
-    logger.info("Executing crypto node")
-    return await crypto_agent.analyze(state)
+# REMOVED: crypto_node (CryptoAgent not available)
 
 
 async def verifier_node(state: AgentState) -> AgentState:
@@ -98,8 +94,7 @@ def route_to_agent(state: AgentState) -> Literal[
     "market_research",
     "realtime_analysis",
     "portfolio",
-    "explainer",
-    "crypto"
+    "explainer"
 ]:
     """
     Conditional routing based on selected mode and query content.
@@ -123,9 +118,7 @@ def route_to_agent(state: AgentState) -> Literal[
     elif selected_mode == AgentMode.PORTFOLIO.value:
         return "portfolio"
     
-    # Route crypto queries to crypto
-    elif selected_mode == AgentMode.CRYPTO.value:
-        return "crypto"
+    # REMOVED: Crypto routing (CryptoAgent not available)
     
     # Route real-time analysis to realtime agent
     elif selected_mode == AgentMode.REALTIME_ANALYSIS.value:
@@ -163,7 +156,7 @@ def create_agent_graph() -> StateGraph:
     workflow.add_node("realtime_analysis", realtime_node)
     workflow.add_node("portfolio", portfolio_node)
     workflow.add_node("explainer", explainer_node)
-    workflow.add_node("crypto", crypto_node)
+    # REMOVED: crypto node
     workflow.add_node("verifier", verifier_node)
     
     # Set entry point
@@ -179,8 +172,7 @@ def create_agent_graph() -> StateGraph:
             "market_research": "market_research",
             "realtime_analysis": "realtime_analysis",
             "portfolio": "portfolio",
-            "explainer": "explainer",
-            "crypto": "crypto"
+            "explainer": "explainer"
         }
     )
     
@@ -191,7 +183,7 @@ def create_agent_graph() -> StateGraph:
     workflow.add_edge("realtime_analysis", "verifier")
     workflow.add_edge("portfolio", "verifier")
     workflow.add_edge("explainer", "verifier")
-    workflow.add_edge("crypto", "verifier")
+    # REMOVED: crypto edge
     
     # Verifier goes to END
     workflow.add_edge("verifier", END)

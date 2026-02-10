@@ -1,5 +1,7 @@
 # AI LTP Calculator & Advanced Definitions
 
+> **See Also:** `trading_terms.txt` for LTP basics, `ltp_features.txt` for features overview
+
 ## AI LTP Predictions
 
 The AI module of LTP Calculator provides real-time scenario analysis.

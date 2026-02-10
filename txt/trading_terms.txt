@@ -1,0 +1,97 @@
+# Basic Trading Terms & Definitions
+
+## LTP (Last Traded Price)
+
+**Definition:** LTP stands for "Last Traded Price" - the most recent price at which a stock, commodity, or derivative contract was traded on the exchange.
+
+**Key Points:**
+- LTP is the current market price you see on trading platforms
+- It represents the last successful transaction between a buyer and seller
+- Updates in real-time during market hours (NSE: 9:15 AM - 3:30 PM)
+- Different from:
+  - **Bid Price:** Highest price buyers are willing to pay
+  - **Ask Price:** Lowest price sellers are willing to accept
+  - **Close Price:** Final trading price of the previous session
+  - **Open Price:** First trade price of the current session
+
+**Real-World Example:**
+```
+Reliance Industries:
+- LTP: ₹2,450.75
+- Bid: ₹2,450.00 (buyers want to buy at this price)
+- Ask: ₹2,451.00 (sellers want to sell at this price)
+- Last trade happened at ₹2,450.75
+```
+
+**Trading Context:**
+When you place a **Market Order**, your order will execute near the current LTP. However, in volatile markets, the actual execution price may differ slightly from the LTP you saw when placing the order.
+
+**Why LTP Matters:**
+1. **Price Discovery:** Shows real market consensus at that moment
+2. **Decision Making:** Helps decide entry/exit points
+3. **Trend Analysis:** LTP movement indicates market sentiment
+4. **Premium Calculation:** For options, LTP shows current premium
+
+**Common Questions:**
+
+**Q: What's the difference between LTP and CMP?**  
+A: They're the same thing. CMP (Current Market Price) = LTP (Last Traded Price)
+
+**Q: Why does LTP keep changing?**  
+A: Every new trade updates the LTP. In liquid stocks, this happens every second.
+
+**Q: Can I buy at LTP?**  
+A: Not guaranteed. You can place a limit order at LTP, but if the market moves, you might not get filled. Market orders execute near LTP but price isn't guaranteed.
+
+**Q: What if there's no LTP (0.00)?**  
+A: This happens when no trades have occurred yet for the day. Common in illiquid stocks or derivatives contracts.
+
+## Related Tools
+
+**LTP Calculator:** An advanced proprietary tool built by Daddy's AI for systematic trading:
+
+### LTP Blast (Intraday)
+Generates intraday trading signals with specific price levels:
+- **C1/C2:** Bullish entry and averaging levels
+- **P1/P2:** Bearish entry and averaging levels
+- **Risk Calculation:** Automatic risk-reward computation
+- **Fresh Signals:** Only trades stocks that haven't triggered yet today
+
+**Use Case:** "Show me LTP Blast signals for today" → Get actionable intraday trades
+
+### LTP Swing (Positional)
+Uses Open Interest analysis for swing trading:
+- **OI-to-OI Method:** Trades from support OI to resistance OI
+- **Delivery-Based:** For holding 1-5 days
+- **WTB/WTT Filtering:** Avoids weak levels
+- **Premium Checks:** Ensures no manipulation
+
+**Use Case:** "Give me LTP Swing trades in Nifty stocks" → Get positional opportunities
+
+### Arbitrage Stocks
+Risk-free trading between Futures and Spot:
+- **Arbitrage Logic:** Profit from Future-Spot price difference
+- **Capital Intensive:** Requires significant margin
+- **Near Risk-Free:** Converges at expiry
+
+For detailed features, see `ltp_features.txt` and `ai_ltp.txt`.
+
+**Keywords for LTP Calculator:**
+- "LTP Calculator"
+- "LTP Blast"
+- "LTP Swing"
+- "Intraday signals"
+- "Positional trades"
+- "Today's triggers"
+
+## Other Common Trading Terms
+
+**CMP (Current Market Price):** Same as LTP - current trading price
+
+**Volume:** Total number of shares/contracts traded
+
+**OI (Open Interest):** Total number of outstanding derivative contracts (Futures/Options)
+
+**Bid-Ask Spread:** Difference between bid and ask price
+
+**Circuit Breaker:** Price limits that halt trading if price moves too drastically

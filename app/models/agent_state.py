@@ -32,6 +32,9 @@ class AgentState(TypedDict):
     # Routing decisions
     selected_mode: Optional[str]
     extracted_entities: Optional[dict[str, Any]]  # symbols, timeframes, etc.
+    needs_web_search: Optional[bool]  # AI-driven decision for web search
+    enable_research_loop: Optional[bool]  # Deep research flag
+    has_vision_content: Optional[bool]  # Has images flag
     
     # Conversation context
     conversation_history: list[dict[str, str]]  # [{role, content}, ...]

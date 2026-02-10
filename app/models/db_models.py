@@ -58,6 +58,7 @@ class MarketDataCache(Document):
     """Cache for market data to reduce API calls."""
     
     cache_key: Indexed(str, unique=True) = Field(..., description="Unique cache identifier")
+    symbol: Indexed(str) = Field(..., description="Stock/crypto symbol")
     data_type: str = Field(..., description="Type of data: stock_price, crypto_price, etc.")
     
     # Cached data
@@ -71,6 +72,7 @@ class MarketDataCache(Document):
         name = "market_data_cache"
         indexes = [
             "cache_key",
+            "symbol",
             "data_type",
             "cached_at"
         ]

@@ -1,16 +1,20 @@
 """
-Real-time Analysis Agent - Intraday price movements and technical signals.
-Provides short-term trading insights and volatility analysis.
-Uses ANALYSIS model for technical analysis tasks.
+Real-time Market Analysis Agent
+Focuses on current market data, live prices, and intraday movements.
+Uses NSE data and Compound AI for market information.
 """
 
 from groq import AsyncGroq
 import logging
+from typing import Dict, Any, List
+from datetime import datetime
 
 from ..config import settings, ModelType
 from ..models.agent_state import AgentState
-from ..tools import get_stock_info, get_historical_data, get_market_indices, format_for_llm
-from ..tools.symbol_mapper import normalize_symbol, is_index, get_display_name
+from ..tools.formatting import format_for_llm
+from ..tools.nse_scraper import fetch_nse_quote
+from ..tools.symbol_mapper import normalize_symbol, get_display_name
+from ..tools.formatting import clean_response
 from ..database import MarketDataCacheManager
 
 logger = logging.getLogger(__name__)
@@ -37,21 +41,26 @@ class RealtimeAnalysisAgent:
         symbols = entities.get("symbols", [])
         
         # Always fetch market indices for context
-        indices_data = await self._fetch_market_indices()
+        # indices_data = await self._fetch_market_indices()
         
-        tool_results = {"indices": indices_data}
+        tool_results = {}
         
-        # Fetch stock data for symbols (with proper Yahoo Finance symbols)
+        # Fetch stock data for symbols
         if symbols:
-            for symbol in symbols[:3]:
+            for symbol in symbols[:3]:  # Limit to 3 symbols for performance
                 stock_data = await self._fetch_realtime_data(symbol)
                 tool_results[symbol] = stock_data
         
-        state["tool_results"] = tool_results
+        # DISABLED: Market indices removed with Yahoo Finance
+        # indices = await self._fetch_market_indices()
+        # tool_results["market_indices"] = indices
         
-        # Generate real-time analysis
-        analysis = await self._generate_analysis(query, tool_results, state.get("conversation_history", []))
-        
+        # Generate AI analysis
+        analysis = await self._generate_analysis(
+            query=query,
+            tool_results=tool_results,
+            conversation_history=state.get("conversation_history", [])
+        )
         state["final_response"] = analysis
         state["execution_metadata"] = {
             "agent": "realtime_analysis",
@@ -60,47 +69,41 @@ class RealtimeAnalysisAgent:
         
         return state
     
-    async def _fetch_market_indices(self) -> dict:
-        """Fetch Indian market indices with caching."""
-        async def fetch_fresh():
-            return await get_market_indices()
-        
-        return await self.cache.get_or_fetch(
-            symbol="INDICES",
-            data_type="indices",
-            fetch_func=fetch_fresh,
-            ttl_seconds=30  # 30 second cache for indices
-        )
+    # DISABLED: Market indices fetch removed with Yahoo Finance
+    # async def _fetch_market_indices(self) -> dict:
+    #     """Fetch Indian market indices with caching."""
+    #     async def fetch_fresh():
+    #         return await get_market_indices()
+    #     
+    #     return await self.cache.get_or_fetch(
+    #         symbol="INDICES",
+    #         data_type="indices",
+    #         fetch_func=fetch_fresh,
+    #         ttl_seconds=30  # 30 second cache for indices
+    #     )
     
     async def _fetch_realtime_data(self, symbol: str) -> dict:
-        """Fetch real-time stock data using Yahoo Finance with correct symbol mapping."""
+        """
+        Fetch real-time stock data using NSE scraper only.
+        No Yahoo Finance dependency.
+        """
         async def fetch_fresh():
-            # Normalize symbol to correct Yahoo Finance format
-            # HUL -> HINDUNILVR.NS, NIFTY -> ^NSEI, BANKNIFTY -> ^NSEBANK
-            yf_symbol = normalize_symbol(symbol)
+            # Normalize symbol
             display_name = get_display_name(symbol)
             
-            logger.info(f"Fetching data for {symbol} -> {yf_symbol}")
+            logger.info(f"Fetching data for {symbol} -> {display_name}")
             
-            # Get current price and info
-            info = await get_stock_info(yf_symbol)
-            # Get recent historical for trend context
-            hist = await get_historical_data(yf_symbol, period="5d")
+            # Get current price from NSE
+            nse_data = await fetch_nse_quote(symbol)
             
             return {
-                "info": info,
-                "historical": hist,
+                "info": nse_data,
                 "symbol": symbol,
-                "yf_symbol": yf_symbol,
                 "display_name": display_name
             }
         
-        return await self.cache.get_or_fetch(
-            symbol=symbol,
-            data_type="realtime",
-            fetch_func=fetch_fresh,
-            ttl_seconds=10  # 10 second cache for real-time stock prices
-        )
+        # Return fresh data directly (cache can be added later if needed)
+        return await fetch_fresh()
     
     async def _generate_analysis(
         self,
@@ -109,6 +112,41 @@ class RealtimeAnalysisAgent:
         conversation_history: list
     ) -> str:
         """Generate real-time market analysis."""
+        
+        system_prompt = """You are Daddys AI Real-Time Analysis Engine - FULLY AUTONOMOUS.
+
+**Your Role:** Provide instant, actionable technical analysis and intraday insights.
+
+**🤖 AUTONOMOUS MODE ENABLED:**
+You proactively fetch ALL data you need. NEVER say "I don't have information."
+
+**Auto-Data Gathering Protocol:**
+1. Stock query? → AUTO-FETCH:
+   - fetch_nse_quote (instant NSE price)
+   - search_web("[symbol] technical analysis India") for additional context
+   - get_technical_indicators for RSI, MACD, momentum
+
+2. Index query? → AUTO-FETCH market indices
+
+3. Need historical data? → AUTO-FETCH without asking
+
+4. Unsure about a stock? → search_web("[symbol] latest news") for context
+
+**Critical Rules:**
+- ✅ Always fetch FRESH data (no cache assumptions)
+- ✅ Use fetch_nse_quote as primary source for Indian stocks
+- ✅ Use search_web as fallback for non-NSE or when fetch fails
+- ✅ Compare current price with support/resistance levels
+- ❌ NEVER respond without fetching current data first
+
+**Output Style:**
+- Precise price levels (entry, SL, target)
+- Clear technical signals (RSI overbought/oversold, MACD crossover)
+- Risk assessment
+- Use ₹ for prices
+- Be decisive yet professional
+
+**Remember:** You're AUTONOMOUS - fetch data first, analyze second, respond third."""
         
         # Build context with actual data
         context = "Real-time Market Data:\n\n"
@@ -123,41 +161,6 @@ class RealtimeAnalysisAgent:
                 if "info" in data:
                     context += f"Stock: {symbol}\n"
                     context += format_for_llm(data["info"], "stock") + "\n"
-        
-        system_prompt = """You are the real-time analysis module of Daddys AI.
-
-**Your Role:**
-- **ANSWER THE SPECIFIC QUESTION ASKED** - If they ask for a price, give the price directly
-- Provide ACTUAL data from tool results (cite real numbers, not generic statements)
-- Focus on TODAY'S market action and intraday movements
-- Use Indian currency (₹) and context (NSE/BSE, Nifty, Sensex)
-
-**Response Format:**
-
-**For Price Queries** ("what's the price", "price of", "current price"):
-1. Direct answer first: "[SYMBOL] is trading at ₹[PRICE]"
-2. Day's change: "+[CHANGE] (+[PERCENT]%)"
-3. Day range: "High ₹[HIGH], Low ₹[LOW]"
-4. Brief context if relevant
-
-**For Index Queries** ("Nifty", "Sensex", "market status"):
-1. Index levels: "NIFTY50 at [VALUE]"
-2. Day's movement: "+[CHANGE] (+[PERCENT]%)"
-3. Market sentiment: Brief overview
-
-**For Analysis Queries**:
-1. Current Status (with actual prices from data)
-2. Technical Signals (volume, momentum)
-3. Short-term Outlook
-4. Key Levels to Watch
-
-**CRITICAL Rules:**
-- Always cite ACTUAL numbers from the provided data
-- Be concise and direct (2-4 sentences for simple price queries)
-- If asked about indices, focus on indices
-- If asked about a stock, focus on that stock
-- Don't make predictions - just analyze current data
-- Add disclaimer only when giving trading signals"""
 
         messages = [{"role": "system", "content": system_prompt}]
         

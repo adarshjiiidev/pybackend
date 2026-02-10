@@ -1,5 +1,7 @@
 # LTP Calculator Features
 
+> **Note:** For basic LTP definition and trading context, see `trading_terms.txt`
+
 ## 1. LTP Blast (Intraday)
 
 **Purpose:** Intraday stock selection for quick moves.

@@ -140,6 +140,9 @@ class CacheRepository:
         ttl_seconds: int = 300
     ) -> MarketDataCache:
         """Store market data in cache."""
+        # Generate cache key from symbol and data_type
+        cache_key = f"{symbol}:{data_type}"
+        
         # Delete existing cache entry if present
         await MarketDataCache.find(
             MarketDataCache.symbol == symbol,
@@ -148,6 +151,7 @@ class CacheRepository:
         
         # Create new cache entry
         cache_entry = MarketDataCache(
+            cache_key=cache_key,
             symbol=symbol,
             data_type=data_type,
             data=data,

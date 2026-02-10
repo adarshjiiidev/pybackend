@@ -132,10 +132,77 @@ CONTEXT_TERMS = {
     "futures", "forex", "commodity", "crypto", "cryptocurrency"
 }
 
+# Common typos and variations mapped to correct terms
+TYPO_ALIASES = {
+    # LTP variations
+    "LPT": "LTP",
+    "TPL": "LTP",
+    "LAST PRICE": "LTP",
+    "LAST TRADED": "LTP",
+    
+    # COA variations
+    "COA 1.0": "COA",
+    "COA 2.0": "COA",
+    "COA1": "COA",
+    "COA2": "COA",
+    "CHART OF ACCURACY": "COA",
+    
+    # WTB/WTT variations
+    "WEAK TO BOTTOM": "WTB",
+    "WEAK BOTTOM": "WTB",
+    "WEAK TO TOP": "WTT",
+    "WEAK TOP": "WTT",
+    "WILLING TRADE": "WTT",
+    
+    # SOC variations
+    "STATE OF CONFUSION": "SOC",
+    "CONFUSION": "SOC",
+    
+    # EOR/EOS variations
+    "EXTENSION RESISTANCE": "EOR",
+    "EXTENSION SUPPORT": "EOS",
+    "EOR+1": "EOR",
+    "EOR-1": "EOR",
+    "EOS+1": "EOS",
+    "EOS-1": "EOS",
+    
+    # Common trading terms
+    "STOPLOSS": "SL",
+    "STOP-LOSS": "SL",
+    "STOP LOSS MARKET": "SLM",
+    "DEMAT ACCOUNT": "DEMAT",
+    "DMAT": "DEMAT",
+    
+    # Options variations
+    "CALL OPTION": "CE",
+    "PUT OPTION": "PE",
+    "OPEN INT": "OI",
+    "OPEN INTEREST": "OI",
+    "IMPLIED VOL": "IV",
+    "VOLATILITY INDEX": "VIX",
+    
+    # Market variations
+    "NATIONAL STOCK": "NSE",
+    "BOMBAY STOCK": "BSE",
+    "SEBI": "SEBI",
+    
+    # Ratios
+    "PE RATIO": "PE",
+    "PB RATIO": "PB",
+    "PRICE EARNINGS": "PE",
+    "PRICE BOOK": "PB",
+    
+    # Calculator/Tool variations
+    "LTP CALC": "LTP CALCULATOR",
+    "LTP CAL": "LTP CALCULATOR",
+    "CALCULATOR": "LTP CALCULATOR"
+}
+
 
 def is_financial_term(text: str) -> bool:
     """
     Check if the given text is a known financial term.
+    Now handles common typos and variations!
     
     Args:
         text: Text to check (symbol or query)
@@ -144,6 +211,10 @@ def is_financial_term(text: str) -> bool:
         True if it's a known financial term, False otherwise
     """
     text_upper = text.upper().strip()
+    
+    # Check typo aliases first (e.g., "LPT" -> "LTP")
+    if text_upper in TYPO_ALIASES:
+        return True
     
     # Direct match in financial terms
     if text_upper in FINANCIAL_TERMS:
@@ -157,6 +228,10 @@ def is_financial_term(text: str) -> bool:
             for term in FINANCIAL_TERMS:
                 if term.lower() in text_lower:
                     return True
+            # Also check typo aliases
+            for typo in TYPO_ALIASES:
+                if typo.lower() in text_lower:
+                    return True
     
     return False
 
@@ -164,11 +239,20 @@ def is_financial_term(text: str) -> bool:
 def get_term_definition(term: str) -> str | None:
     """
     Get the definition/expansion of a financial term.
+    Now resolves typos automatically!
     
     Args:
-        term: Financial term (e.g., "WTB", "CAGR")
+        term: Financial term (e.g., "WTB", "CAGR", "LPT")
     
     Returns:
         Definition string or None if not found
     """
-    return FINANCIAL_TERMS.get(term.upper().strip())
+    term_upper = term.upper().strip()
+    
+    # Check if it's a typo and resolve to correct term
+    if term_upper in TYPO_ALIASES:
+        resolved_term = TYPO_ALIASES[term_upper]
+        return FINANCIAL_TERMS.get(resolved_term)
+    
+    # Direct lookup
+    return FINANCIAL_TERMS.get(term_upper)

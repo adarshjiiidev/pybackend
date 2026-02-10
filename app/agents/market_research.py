@@ -1,15 +1,16 @@
 """
-Market Research Agent - Deep fundamental analysis for Indian equities.
-Provides comprehensive stock analysis with risk assessment.
-Uses REASONING model for deep analytical tasks.
+Market Research Agent - Uses Compound AI for company analysis
 """
 
-from groq import AsyncGroq
 import logging
+from typing import Dict, Any
+from datetime import datetime
 
+from groq import AsyncGroq
 from ..config import settings, ModelType
-from ..models.agent_state import AgentState
-from ..tools import get_stock_info, format_stock_info, get_historical_data
+from ..models.agent_state import AgentState, AgentMode
+from ..tools.formatting import format_for_llm
+from ..tools.nse_scraper import fetch_nse_quote
 from ..tools.symbol_mapper import normalize_symbol
 from ..database import MarketDataCacheManager
 
@@ -41,7 +42,7 @@ class MarketResearchAgent:
         
         if symbols:
             for symbol in symbols[:3]:  # Limit to 3 symbols
-                stock_data = await self._fetch_stock_data(symbol)
+                stock_data = await self._fetch_stock_fundamentals(symbol)
                 tool_results[symbol] = stock_data
         else:
             # Try to infer from query if no symbols extracted
@@ -61,19 +62,14 @@ class MarketResearchAgent:
         
         return state
     
-    async def _fetch_stock_data(self, symbol: str) -> dict:
-        """Fetch stock data with caching."""
-        async def fetch_fresh():
-            # Normalize symbol (HUL -> HINDUNILVR.NS, NIFTY -> ^NSEI)
-            yf_symbol = normalize_symbol(symbol)
-            return await get_stock_info(yf_symbol)
-        
-        return await self.cache.get_or_fetch(
-            symbol=symbol,
-            data_type="info",
-            fetch_func=fetch_fresh,
-            ttl_seconds=300  # 5 minutes cache
-        )
+    async def _fetch_stock_fundamentals(self, symbol: str) -> Dict[str, Any]:
+        """Fetch stock fundamentals using NSE data."""
+        try:
+            logger.info(f"Fetching fundamentals for {symbol}")
+            return await fetch_nse_quote(symbol)
+        except Exception as e:
+            logger.error(f"Error fetching fundamentals for {symbol}: {e}")
+            return {"error": str(e)}
     
     async def _generate_analysis(
         self,

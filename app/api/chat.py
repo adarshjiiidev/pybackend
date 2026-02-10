@@ -1,5 +1,6 @@
 """
 Chat API endpoints using the existing multi-agent LangGraph workflow.
+Includes rate limiting for protection against abuse.
 """
 
 from fastapi import APIRouter, HTTPException, Depends, Query
@@ -10,15 +11,21 @@ from datetime import datetime
 import logging
 import json
 
-from app.models.chat_models import Conversation,Message
+from app.models.chat_models import Conversation, Message
 from app.models.db_models import User
 from app.models.agent_state import AgentState, AgentMode
 from app.auth.security import get_current_user, get_optional_user
 from app.graph.workflow import create_agent_graph
+from app.utils.rate_limiter import TokenBucket
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+# Initialize rate limiter: 100 tokens/bucket, refill 10 per second
+# Allows bursts of 100 requests, sustained rate of 10 requests/second per user
+rate_limiter = TokenBucket(capacity=100, refill_rate=10.0, tokens_per_request=1)
+
 
 
 # Pydantic models
@@ -57,8 +64,26 @@ async def send_message(
     """
     Send a message and get AI response using multi-agent workflow.
     Supports streaming responses.
+    Includes rate limiting protection.
     """
     try:
+        # Rate limiting check
+        user_id = str(user.user_id) if user else f"anon_{request.conversation_id or 'new'}"
+        
+        if not await rate_limiter.acquire(user_id):
+            # Get rate limit status for helpful error message
+            status = await rate_limiter.get_status(user_id)
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "error": "Rate limit exceeded",
+                    "message": "Too many requests. Please slow down.",
+                    "tokens_available": status["tokens"],
+                    "capacity": status["capacity"],
+                    "retry_after_seconds": 10
+                }
+            )
+        
         # Check message limit for non-authenticated users
         if not user and request.conversation_id:
             message_count = await Message.find(

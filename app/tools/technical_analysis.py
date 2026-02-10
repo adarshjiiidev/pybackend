@@ -8,7 +8,6 @@ import numpy as np
 from typing import Dict, Any, Optional
 import logging
 
-from .yahoo_finance import get_historical_data
 from .symbol_mapper import normalize_symbol
 
 logger = logging.getLogger(__name__)
@@ -118,108 +117,68 @@ def calculate_volatility(prices: pd.Series, period: int = 20) -> Dict[str, float
 
 async def get_technical_indicators(symbol: str, period: str = "6mo") -> Dict[str, Any]:
     """
-    Get comprehensive technical indicators for a stock.
+    Get comprehensive technical indicators for a stock using Browser Search.
     
     Args:
-        symbol: Stock symbol (will be normalized)
+        symbol: Stock symbol (NSE format, e.g., "RELIANCE", "TCS")
         period: Historical period (1mo, 3mo, 6mo, 1y, 2y, 5y)
     
     Returns:
         Dictionary with all technical indicators and analysis
     """
     try:
-        # Normalize symbol
-        yf_symbol = normalize_symbol(symbol)
+        from .browser_search import browser_search_historical_data
         
-        # Get historical data
-        hist_data = await get_historical_data(yf_symbol, period=period)
+        # Get historical data using Browser Search
+        hist_data = await browser_search_historical_data(symbol, period=period)
         
-        if not hist_data or 'error' in hist_data:
-            return {'error': f'Failed to fetch historical data for {symbol}'}
+        if "error" in hist_data or not hist_data.get("historical"):
+            return {"error": f"Failed to fetch historical data for {symbol}"}
         
         # Convert to DataFrame
-        df = pd.DataFrame(hist_data.get('historical', []))
+        df = pd.DataFrame(hist_data.get("historical", []))
         
-        if df.empty:
-            return {'error': f'No historical data available for {symbol}'}
+        if df.empty or 'close' not in df.columns:
+            return {"error": f"Insufficient data for {symbol}"}
         
-        # Extract close prices
-        if 'Close' in df.columns:
-            closes = df['Close']
-        elif 'close' in df.columns:
-            closes = df['close']
-        else:
-            return {'error': 'Close price data not found'}
+        # Ensure numeric close prices
+        df['close'] = pd.to_numeric(df['close'], errors='coerce')
+        df = df.dropna(subset=['close'])
         
-        # Calculate current price
-        current_price = float(closes.iloc[-1])
+        if len(df) < 20:
+            return {"error": f"Not enough data for {symbol}"}
         
-        # Calculate all indicators
-        rsi_series = calculate_rsi(closes)
-        current_rsi = float(rsi_series.iloc[-1]) if not pd.isna(rsi_series.iloc[-1]) else None
-        
-        bb_bands = calculate_bollinger_bands(closes)
-        current_bb = {
-            'upper': float(bb_bands['upper'].iloc[-1]) if not pd.isna(bb_bands['upper'].iloc[-1]) else None,
-            'middle': float(bb_bands['middle'].iloc[-1]) if not pd.isna(bb_bands['middle'].iloc[-1]) else None,
-            'lower': float(bb_bands['lower'].iloc[-1]) if not pd.isna(bb_bands['lower'].iloc[-1]) else None
-        }
-        
-        macd_data = calculate_macd(closes)
-        current_macd = {
-            'macd': float(macd_data['macd'].iloc[-1]) if not pd.isna(macd_data['macd'].iloc[-1]) else None,
-            'signal': float(macd_data['signal'].iloc[-1]) if not pd.isna(macd_data['signal'].iloc[-1]) else None,
-            'histogram': float(macd_data['histogram'].iloc[-1]) if not pd.isna(macd_data['histogram'].iloc[-1]) else None
-        }
-        
-        # Get period high/low for Fibonacci
-        period_high = float(closes.max())
-        period_low = float(closes.min())
-        fibonacci_levels = calculate_fibonacci_retracements(period_high, period_low)
-        
-        # Support/Resistance
-        support_resistance = calculate_support_resistance(closes)
-        
-        # Moving Averages
-        moving_avgs = calculate_moving_averages(closes)
-        
-        # Volatility
-        volatility = calculate_volatility(closes)
-        
-        # Generate signals
-        signals = generate_trading_signals(
-            current_price, current_rsi, current_bb, current_macd, moving_avgs
-        )
+        # Calculate indicators
+        closes = df['close'].values
+        rsi = calculate_rsi(closes)
+        sma_20 = calculate_sma(closes, 20)
+        sma_50 = calculate_sma(closes, 50) if len(closes) >= 50 else None
+        ema_12 = calculate_ema(closes, 12)
+        ema_26 = calculate_ema(closes, 26)
+        macd_line, signal_line, macd_histogram = calculate_macd(closes)
+        bb_upper, bb_middle, bb_lower = calculate_bollinger_bands(closes)
         
         return {
-            'symbol': symbol,
-            'yf_symbol': yf_symbol,
-            'current_price': current_price,
-            'period_high': period_high,
-            'period_low': period_low,
-            'rsi': {
-                'value': current_rsi,
-                'interpretation': interpret_rsi(current_rsi) if current_rsi else None
-            },
-            'bollinger_bands': {
-                **current_bb,
-                'interpretation': interpret_bollinger_bands(current_price, current_bb)
-            },
-            'macd': {
-                **current_macd,
-                'interpretation': interpret_macd(current_macd)
-            },
-            'fibonacci_retracements': fibonacci_levels,
-            'support_resistance': support_resistance,
-            'moving_averages': moving_avgs,
-            'volatility': volatility,
-            'signals': signals,
-            'data_points': len(closes)
+            "symbol": symbol,
+            "rsi": rsi,
+            "rsi_interpretation": interpret_rsi(rsi),
+            "sma_20": sma_20,
+            "sma_50": sma_50,
+            "ema_12": ema_12,
+            "ema_26": ema_26,
+            "macd": macd_line,
+            "macd_signal": signal_line,
+            "macd_histogram": macd_histogram,
+            "bb_upper": bb_upper,
+            "bb_middle": bb_middle,
+            "bb_lower": bb_lower,
+            "current_price": float(closes[-1]),
+            "timestamp": datetime.now().isoformat()
         }
-        
     except Exception as e:
-        logger.error(f"Error calculating technical indicators for {symbol}: {e}")
-        return {'error': str(e)}
+        logger.error(f"Technical indicators error for {symbol}: {e}")
+        return {"error": str(e), "symbol": symbol}
+
 
 
 def interpret_rsi(rsi: Optional[float]) -> str:

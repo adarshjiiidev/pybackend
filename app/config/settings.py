@@ -99,18 +99,18 @@ class Settings(BaseSettings):
     # Database Configuration
     mongodb_url: str = "mongodb://localhost:27017"
     mongodb_db_name: str = "daddys_ai"
-    mongodb_max_pool_size: int = 10
-    mongodb_min_pool_size: int = 1
+    mongodb_max_pool_size: int = 100  # Scaled for 5000+ concurrent users
+    mongodb_min_pool_size: int = 10  # Higher minimum for better performance
     
     # Application Settings
     environment: str = "development"
     log_level: str = "INFO"
-    cache_ttl_seconds: int = 180  # 3 minutes (faster refresh for real-time data)
+    cache_ttl_seconds: int = 60  # 1 minute (faster refresh, less DB load)
     max_conversation_history: int = 50
     
-    # API Settings - Aligned with Groq rate limits
+    # API Settings - Scaled for high concurrency
     api_timeout_seconds: int = 30
-    rate_limit_per_minute: int = 30  # Conservative (Groq free tier: 30 RPM)
+    rate_limit_per_minute: int = 100  # Increased for multiple concurrent users
     cors_origins: list[str] = ["*"]
     
     # Agent Settings

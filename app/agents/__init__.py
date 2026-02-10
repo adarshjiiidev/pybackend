@@ -7,7 +7,6 @@ from .market_research import MarketResearchAgent
 from .realtime_analysis import RealtimeAnalysisAgent
 from .portfolio import PortfolioAgent
 from .explainer import ExplainerAgent
-from .crypto import CryptoAgent
 from .verifier import VerifierAgent
 # Research loop agents
 from .planner import PlannerAgent
@@ -23,7 +22,6 @@ __all__ = [
     "RealtimeAnalysisAgent",
     "PortfolioAgent",
     "ExplainerAgent",
-    "CryptoAgent",
     "VerifierAgent",
     "PlannerAgent",
     "ResearcherAgent",

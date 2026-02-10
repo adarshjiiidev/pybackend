@@ -55,6 +55,13 @@ Company's total assets minus liabilities
 
 ## Trading Terms
 
+### LTP (Last Traded Price)
+The most recent price at which a stock, commodity, or derivative was traded
+- **Real-time Price**: Updates continuously during market hours
+- **Current Market Price**: Same as CMP (Current Market Price)
+- Different from bid (buy price) and ask (sell price)
+- Example: If Reliance LTP is ₹2,450, the last trade was at this price
+
 ### Bid and Ask
 - **Bid**: Highest price buyers willing to pay
 - **Ask**: Lowest price sellers willing to accept

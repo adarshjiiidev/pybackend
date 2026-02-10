@@ -47,31 +47,54 @@ class RouterAgent:
         should_research = self._should_trigger_research(query, state)
         state["enable_research_loop"] = should_research
         
-        system_prompt = """You are the routing brain of Daddys AI, a financial intelligence system built by Adarsh, a 14-year-old student at Daddys International School.
+        system_prompt = """You are the routing brain of Daddys AI, a financial intelligence system.
 
-Your job: quickly classify user queries and route to the right specialist.
+Your job: Analyze the query and provide TWO decisions in JSON format.
 
-Available modes:
-- market_research: Deep fundamental analysis, company research
-- realtime_analysis: Price movements, technical analysis, current trends  
-- portfolio: Portfolio optimization, asset allocation
-- explainer: Educational content, concept clarification
-- crypto: Cryptocurrency analysis
+1. **Mode Selection** - Route to the right specialist:
+   - market_research: Deep fundamental analysis, company research
+   - realtime_analysis: Price movements, technical analysis, current trends  
+   - portfolio: Portfolio optimization, asset allocation
+   - explainer: Educational content, concept clarification, definitions
+   - crypto: Cryptocurrency analysis
 
-Classify the query and respond with ONLY the mode name."""
+2. **Web Search Decision** - Determine if real-time web search is needed:
+   - Use web search for: current events, news, recent happenings, "what is happening", breaking news, elections, politics, latest updates, anything time-sensitive
+   - Don't use web search for: financial definitions, concepts, strategies, historical facts, educational questions, or when ever you feel need of it after anlyzing the prompt.
+
+Respond ONLY with JSON in this exact format:
+{"mode": "mode_name", "needs_web_search": true/false}
+
+Examples:
+- "what is happening in japan elections" → {"mode": "explainer", "needs_web_search": true}
+- "what is RSI in trading" → {"mode": "explainer", "needs_web_search": false}
+- "latest news on reliance stock" → {"mode": "realtime_analysis", "needs_web_search": true}
+- "explain portfolio diversification" → {"mode": "explainer", "needs_web_search": false}"""
 
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Classify: {query}"}
+                    {"role": "user", "content": f"Analyze this query: {query}"}
                 ],
                 temperature=self.temperature,
-                max_tokens=50
+                max_tokens=100
             )
             
-            mode = response.choices[0].message.content.strip().lower()
+            import json
+            result_text = response.choices[0].message.content.strip()
+            
+            # Parse JSON response
+            try:
+                result = json.loads(result_text)
+                mode = result.get("mode", "market_research").lower()
+                needs_web_search = result.get("needs_web_search", False)
+            except json.JSONDecodeError:
+                # Fallback: try to extract mode from text
+                logger.warning(f"Failed to parse JSON, falling back to text extraction: {result_text}")
+                mode = result_text.lower()
+                needs_web_search = False
             
             # Validate mode
             valid_modes = {
@@ -83,13 +106,23 @@ Classify the query and respond with ONLY the mode name."""
             }
             
             selected_mode = valid_modes.get(mode, AgentMode.MARKET_RESEARCH)
-            state["selected_mode"] = selected_mode.value
             
             # Extract entities with conversation context
             entities = await self._extract_entities_with_context(query, conversation_history)
             state["extracted_entities"] = entities
             
-            logger.info(f"Classified as: {selected_mode.value}, Research loop: {should_research}, Entities: {entities}")
+            # Set web search flag (AI-driven decision)
+            state["needs_web_search"] = needs_web_search
+            
+            # Override mode to explainer if it's a financial term query with no stock symbols
+            from ..tools.financial_terms import is_financial_term
+            if is_financial_term(query) and not entities.get("symbols") and not needs_web_search:
+                logger.info(f"📚 Detected financial term query")
+                selected_mode = AgentMode.EXPLAINER
+            
+            state["selected_mode"] = selected_mode.value
+            
+            logger.info(f"🤖 AI Decision → Mode: {selected_mode.value}, Web Search: {needs_web_search}, Research: {should_research}, Entities: {entities}")
             return state
             
         except Exception as e:
