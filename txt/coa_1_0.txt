@@ -38,21 +38,7 @@
 - **Support:** Strong
 - **Resistance:** Weak Towards Bottom
 - **Trend:** Bullish (Resistance weakening down = Bullish? WAIT, RE-VERIFY)
-*Correction from old file:* "Resistance WTB se strong = Bullish". "Resistance WTB = Bullish Pressure".
-Wait, Resistance WTB means weakness towards bottom. Traders shifting down.
-If Resistance shifts DOWN, that is **BEARISH**.
-Let's check `old_all_in_one.txt` line 328: "4th - Resistance Weak Towards Bottom Support Strong. Range:- EOS , EOS-1."
-Range EOS to EOS-1 implies very low/bearish?
-Old file line 40: "wtb yani bearish pressure".
-Old file line 195: "resistance wtb se strong = bullish presure" (Transition is bullish).
-BUT pure "Resistance WTB" means resistance is trying to move DOWN.
-If resistance moves DOWN (17500 -> 17450), market goes DOWN (Bearish).
-So **Scenario 4 (Res WTB)** is **BEARISH**.
 
-*Re-reading Scenario 4 line 328:* "Resistance Weak Towards Bottom Support Strong. Range:- EOS , EOS-1."
-EOS is Buy level. EOS-1 is lower buy level. Use Put from where?
-Usually Resistance WTB -> Shift Down -> Bearish.
-This scenario usually leads to sliding down.
 
 ### Scenario 5: Resistance WTT, Support Strong (Bullish... usually)
 - **Standard:** Resistance WTT (Bullish) + Support Strong (Neutral) = **BULLISH**.

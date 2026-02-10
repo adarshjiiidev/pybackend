@@ -123,14 +123,17 @@ Use the web search results provided to give up-to-date information."""
                     kb_parts.append(f"\n## Source: {result['title']} ({result['filename']})\n{result['content'][:1500]}")
                 kb_context = "\n---\n**Knowledge Base Context:**\n" + "\n".join(kb_parts)
             else:
-                # No KB results - automatically use web search instead of saying "I need to search"
-                logger.info(f"📚 No KB results for '{query}' - automatically using web search")
-                try:
-                    from ..tools.browser_search import browser_search_general
-                    search_result = await browser_search_general(query)
-                    
-                    system_prompt = """You are Daddys AI's explainer. Provide clear, educational explanations based on web search results.
-                    
+                logger.warning(f"⚠️ No KB results for financial term: {query}")
+        
+        # Universal fallback: If no KB context found (either no results or skipped check), try web search
+        if not kb_context:
+            logger.info(f"📚 No context for '{query}' - automatically using web search")
+            try:
+                from ..tools.browser_search import browser_search_general
+                search_result = await browser_search_general(query)
+                
+                system_prompt = """You are Daddys AI's explainer. Provide clear, educational explanations based on web search results.
+                
 Format your response:
 1. Start with a brief definition/explanation
 2. Break down key concepts
@@ -138,31 +141,31 @@ Format your response:
 4. Keep it simple and educational
 
 Use the web search results provided to give accurate information."""
-                    
-                    messages = [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": f"Web Search Results:\n{search_result}\n\nUser Query: {query}\n\nProvide a clear, educational explanation based on these search results."}
-                    ]
-                    
-                    response = await self.client.chat.completions.create(
-                        model=self.model,
-                        messages=messages,
-                        temperature=0.3,
-                        max_tokens=self.max_tokens
-                    )
-                    
-                    state["final_response"] = response.choices[0].message.content
-                    state["execution_metadata"] = {
-                        "agent": "explainer",
-                        "used_browser_search": True,
-                        "fallback_from_kb": True
-                    }
-                    logger.info(f"✅ Auto web search successful for unknown term")
-                    return state
-                    
-                except Exception as e:
-                    logger.error(f"Auto web search failed: {e}")
-                    # Will fall through to normal response without KB context
+                
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Web Search Results:\n{search_result}\n\nUser Query: {query}\n\nProvide a clear, educational explanation based on these search results."}
+                ]
+                
+                response = await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    temperature=0.3,
+                    max_tokens=self.max_tokens
+                )
+                
+                state["final_response"] = response.choices[0].message.content
+                state["execution_metadata"] = {
+                    "agent": "explainer",
+                    "used_browser_search": True,
+                    "fallback_from_kb": True
+                }
+                logger.info(f"✅ Auto web search successful for unknown term")
+                return state
+                
+            except Exception as e:
+                logger.error(f"Auto web search failed: {e}")
+                # Will fall through to normal response without KB context
         
         system_prompt = f"""You are the educational module of Daddys AI, a financial intelligence system built by Adarsh, a 14-year-old student at Daddys International School.
 
