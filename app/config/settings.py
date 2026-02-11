@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     # Groq Reasoning Parameters (for GPT-OSS models)
     reasoning_effort_deep: Literal["low", "medium", "high"] = "high"  # Max reasoning for 120B
     reasoning_effort_fast: Literal["low", "medium", "high"] = "medium"  # Balanced for 20B
-    include_reasoning: bool = True  # Show reasoning process
+    include_reasoning: bool = True  # FORCE: Always show reasoning process for transparency
     
     # Model Parameters (following Groq docs recommendations)
     temperature_reasoning: float = 0.4  # Lower for focused, accurate research
