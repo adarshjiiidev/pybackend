@@ -49,27 +49,23 @@ class RouterAgent:
         
         system_prompt = """You are the routing brain of Daddys AI, a financial intelligence system.
 
-Your job: Analyze the query and provide TWO decisions in JSON format.
+Your job: Analyze the query and select the appropriate specialist mode.
 
-1. **Mode Selection** - Route to the right specialist:
+**Mode Selection** - Route to the right specialist:
    - market_research: Deep fundamental analysis, company research
-   - realtime_analysis: Price movements, technical analysis, current trends  
+   - realtime_analysis: Price movements, technical analysis, current trends, latest market news
    - portfolio: Portfolio optimization, asset allocation
    - explainer: Educational content, concept clarification, definitions
    - crypto: Cryptocurrency analysis
 
-2. **Web Search Decision** - Determine if real-time web search is needed:
-   - Use web search for: current events, news, recent happenings, "what is happening", breaking news, elections, politics, latest updates, anything time-sensitive
-   - Don't use web search for: financial definitions, concepts, strategies, historical facts, educational questions, or when ever you feel need of it after anlyzing the prompt.
-
-Respond ONLY with JSON in this exact format:
-{"mode": "mode_name", "needs_web_search": true/false}
+Respond ONLY with the mode name (no JSON, just the mode string).
 
 Examples:
-- "what is happening in japan elections" → {"mode": "explainer", "needs_web_search": true}
-- "what is RSI in trading" → {"mode": "explainer", "needs_web_search": false}
-- "latest news on reliance stock" → {"mode": "realtime_analysis", "needs_web_search": true}
-- "explain portfolio diversification" → {"mode": "explainer", "needs_web_search": false}"""
+- "what is happening in japan elections" → explainer
+- "what is RSI in trading" → explainer
+- "latest news on reliance stock" → realtime_analysis
+- "explain portfolio diversification" → explainer
+- "analyze TCS fundamentals" → market_research"""
 
         try:
             response = await self.client.chat.completions.create(
@@ -85,16 +81,8 @@ Examples:
             import json
             result_text = response.choices[0].message.content.strip()
             
-            # Parse JSON response
-            try:
-                result = json.loads(result_text)
-                mode = result.get("mode", "market_research").lower()
-                needs_web_search = result.get("needs_web_search", False)
-            except json.JSONDecodeError:
-                # Fallback: try to extract mode from text
-                logger.warning(f"Failed to parse JSON, falling back to text extraction: {result_text}")
-                mode = result_text.lower()
-                needs_web_search = False
+            # Parse response - now it's just a mode string
+            mode = result_text.lower()
             
             # Validate mode
             valid_modes = {
@@ -111,18 +99,15 @@ Examples:
             entities = await self._extract_entities_with_context(query, conversation_history)
             state["extracted_entities"] = entities
             
-            # Set web search flag (AI-driven decision)
-            state["needs_web_search"] = needs_web_search
-            
             # Override mode to explainer if it's a financial term query with no stock symbols
             from ..tools.financial_terms import is_financial_term
-            if is_financial_term(query) and not entities.get("symbols") and not needs_web_search:
+            if is_financial_term(query) and not entities.get("symbols"):
                 logger.info(f"📚 Detected financial term query")
                 selected_mode = AgentMode.EXPLAINER
             
             state["selected_mode"] = selected_mode.value
             
-            logger.info(f"🤖 AI Decision → Mode: {selected_mode.value}, Web Search: {needs_web_search}, Research: {should_research}, Entities: {entities}")
+            logger.info(f"🤖 Router Decision → Mode: {selected_mode.value}, Research: {should_research}, Entities: {entities}")
             return state
             
         except Exception as e:
@@ -194,9 +179,6 @@ If no symbols or if asking for term definition/tool explanation, return {{"symbo
             logger.error(f"Entity extraction error: {e}")
             # Fallback to regex extraction
             return await self._extract_entities(query)
-            logger.error(f"Router classification error: {e}")
-            state["selected_mode"] = AgentMode.MARKET_RESEARCH.value
-            return state
     
     def _should_trigger_research(self, query: str, state: AgentState) -> bool:
         """

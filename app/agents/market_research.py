@@ -1,8 +1,10 @@
 """
-Market Research Agent - Uses Compound AI for company analysis
+Market Research Agent - Deep fundamental analysis with autonomous tool calling.
+AI autonomously decides when and which tools to use for comprehensive analysis.
 """
 
 import logging
+import json
 from typing import Dict, Any
 from datetime import datetime
 
@@ -10,19 +12,16 @@ from groq import AsyncGroq
 from ..config import settings, ModelType
 from ..models.agent_state import AgentState, AgentMode
 from ..tools.formatting import format_for_llm
-from ..tools.nse_scraper import fetch_nse_quote
-from ..tools.symbol_mapper import normalize_symbol
 from ..database import MarketDataCacheManager
 
 logger = logging.getLogger(__name__)
 
 
 class MarketResearchAgent:
-    """Provides in-depth market research and fundamental analysis using reasoning model."""
+    """Provides in-depth market research with autonomous tool usage."""
     
     def __init__(self):
         self.client = AsyncGroq(api_key=settings.groq_api_key)
-        # Use deep reasoning model for fundamental analysis
         self.model = settings.get_model_for_task(ModelType.REASONING_DEEP)
         self.temperature = settings.get_temperature_for_task(ModelType.REASONING_DEEP)
         self.max_tokens = settings.get_max_tokens_for_task(ModelType.REASONING_DEEP)
@@ -30,109 +29,153 @@ class MarketResearchAgent:
     
     async def analyze(self, state: AgentState) -> AgentState:
         """
-        Perform deep market research analysis.
-        Fetches stock data and provides comprehensive insights.
+        Perform deep market research analysis with autonomous tool calling.
+        AI decides which tools to use based on the query.
         """
         query = state["query"]
         entities = state.get("extracted_entities") or {}
         symbols = entities.get("symbols", [])
         
-        # Fetch market data for identified symbols
-        tool_results = {}
-        
-        if symbols:
-            for symbol in symbols[:3]:  # Limit to 3 symbols
-                stock_data = await self._fetch_stock_fundamentals(symbol)
-                tool_results[symbol] = stock_data
-        else:
-            # Try to infer from query if no symbols extracted
-            # For MVP, we'll use a default or ask LLM to identify
-            pass
-        
-        state["tool_results"] = tool_results
-        
-        # Generate analysis using LLM
-        analysis = await self._generate_analysis(query, tool_results, state.get("conversation_history", []))
-        
-        state["final_response"] = analysis
-        state["execution_metadata"] = {
-            "agent": "market_research",
-            "symbols_analyzed": list(tool_results.keys())
-        }
-        
-        return state
-    
-    async def _fetch_stock_fundamentals(self, symbol: str) -> Dict[str, Any]:
-        """Fetch stock fundamentals using NSE data."""
-        try:
-            logger.info(f"Fetching fundamentals for {symbol}")
-            return await fetch_nse_quote(symbol)
-        except Exception as e:
-            logger.error(f"Error fetching fundamentals for {symbol}: {e}")
-            return {"error": str(e)}
-    
-    async def _generate_analysis(
-        self,
-        query: str,
-        tool_results: dict,
-        conversation_history: list
-    ) -> str:
-        """Generate comprehensive market research analysis."""
-        
-        # Build context from tool results
-        context = "Market Data:\n\n"
-        for symbol, data in tool_results.items():
-            context += format_stock_info(data) + "\n\n"
-        
-        system_prompt = """You are a senior equity research analyst specializing in Indian stock markets (NSE/BSE). 
+        # Build comprehensive system prompt with autonomous tool instructions
+        system_prompt = """You are Daddys AI Market Research Analyst - FULLY AUTONOMOUS with deep reasoning capabilities.
 
-Your role:
-- Provide data-grounded, comprehensive fundamental analysis
-- Focus on long-term investment potential
-- Assess risks comprehensively (business, financial, market, regulatory)
-- Compare with sector peers when relevant
-- Use Indian retail investor-friendly language
-- Include relevant financial metrics (PE, PB, ROE, debt ratios, etc.)
-- Provide structured insights with clear sections
-- Always include disclaimers about not being financial advice
+**Your Role:** Provide comprehensive fundamental analysis for long-term investment decisions.
 
-Format your response with clear sections:
-1. Overview
-2. Financial Health
-3. Growth Prospects
-4. Risks & Concerns
-5. Valuation Analysis
-6. Verdict
+**🤖 AUTONOMOUS TOOL USAGE:**
 
-IMPORTANT: 
-- DO NOT include any [REASONING] or [INTERNAL] markers
-- Be direct and user-facing
-- Ground all statements in the provided data
-- If data is insufficient, state what's missing"""
+You have FULL AUTONOMY to use any available tools without asking permission. Use tools proactively when you detect information needs.
 
-        # Build conversation context
+**Decision Framework:**
+1. **Stock fundamental analysis needed?**
+   → USE `fetch_nse_quote` for NSE stocks (RELIANCE, TCS, INFY, etc.)
+   → USE `search_web` for additional context and recent news
+
+2. **Company research needed?**
+   → USE `search_web` with queries like "[Company] Q4 results 2024"
+   → USE `search_financial_news` for latest developments
+
+3. **Sector comparison needed?**
+   → USE `get_sector_analysis` for sector-wide insights
+   → USE `compare_stocks` to compare multiple companies
+
+4. **Technical + Fundamental view needed?**
+   → USE `get_technical_indicators` alongside fundamental data
+
+5. **Portfolio context needed?**
+   → USE `calculate_portfolio_optimization` for allocation suggestions
+
+**Critical Rules:**
+- ✅ ALWAYS use tools to gather fresh data - never rely only on training data
+- ✅ Use multiple tools if needed for comprehensive analysis
+- ✅ For Indian stocks: prioritize `fetch_nse_quote` for real-time data
+- ✅ Cross-reference multiple sources when making investment assessments
+- ❌ NEVER make recommendations without current data
+
+**Analysis Framework:**
+Provide structured insights:
+1. **Overview** - Company snapshot
+2. **Financial Health** - Metrics, ratios, balance sheet strength
+3. **Growth Prospects** - Revenue/profit trends, expansion plans
+4. **Risks & Concerns** - Business, regulatory, market risks
+5. **Valuation Analysis** - PE, PB, comparison with peers
+6. **Verdict** - Summary with risk assessment
+
+**Output Style:**
+- Data-driven and objective
+- Use ₹ for Indian currency
+- Include specific numbers and ratios
+- Always add disclaimer: "Not financial advice"
+- Cite sources when using web search results
+
+**Remember:** You're AUTONOMOUS - proactively gather ALL data needed for comprehensive analysis."""
+
+        # Import tool definitions
+        from ..tools.tool_definitions import FINANCIAL_TOOLS
+        
+        # Build messages with context
         messages = [{"role": "system", "content": system_prompt}]
         
-        # Add conversation history (last 5 messages)
+        # Add conversation history
+        conversation_history = state.get("conversation_history", [])
         for msg in conversation_history[-5:]:
             messages.append(msg)
         
-        # Add current query with context
-        user_message = f"{context}\nUser Query: {query}\n\nProvide comprehensive market research analysis."
-        messages.append({"role": "user", "content": user_message})
+        # Add current query
+        context_hint = ""
+        if symbols:
+            context_hint = f"\n\nExtracted symbols: {', '.join(symbols)}"
+        
+        messages.append({
+            "role": "user",
+            "content": f"User Query: {query}{context_hint}\n\nProvide comprehensive market research analysis. USE TOOLS autonomously to gather all necessary data."
+        })
         
         try:
+            # First call with tool availability
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 temperature=self.temperature,
-                max_tokens=self.max_tokens
+                max_tokens=self.max_tokens,
+                tools=FINANCIAL_TOOLS,
+                tool_choice="auto"
             )
             
-            analysis = response.choices[0].message.content
-            logger.info("Market research analysis generated successfully")
-            return analysis
+            message = response.choices[0].message
+            tool_calls = message.tool_calls
+            
+            # If AI autonomously decided to use tools, execute them
+            if tool_calls:
+                logger.info(f"🛠️ AI autonomously using {len(tool_calls)} tools: {[tc.function.name for tc in tool_calls]}")
+                
+                # Execute tool calls
+                from ..tools.tool_executor import execute_tool
+                tool_results = []
+                
+                for tool_call in tool_calls:
+                    tool_name = tool_call.function.name
+                    tool_args = json.loads(tool_call.function.arguments)
+                    logger.info(f"Executing: {tool_name}({tool_args})")
+                    
+                    result = await execute_tool(tool_name, tool_args)
+                    tool_results.append({
+                        "tool_call_id": tool_call.id,
+                        "role": "tool",
+                        "name": tool_name,
+                        "content": str(result)
+                    })
+                
+                # Add assistant message and tool results
+                messages.append(message)
+                messages.extend(tool_results)
+                
+                # Get final analysis with tool results
+                final_response = await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens
+                )
+                
+                analysis = final_response.choices[0].message.content
+            else:
+                # No tools used
+                analysis = message.content
+            
+            state["final_response"] = analysis
+            state["execution_metadata"] = {
+                "agent": "market_research",
+                "model": self.model,
+                "symbols_analyzed": symbols,
+                "autonomous_tool_calls": len(tool_calls) if tool_calls else 0,
+                "tools_used": [tc.function.name for tc in tool_calls] if tool_calls else []
+            }
+            
+            logger.info(f"✅ Market research: Tools={len(tool_calls) if tool_calls else 0}, Symbols={len(symbols)}")
+            return state
             
         except Exception as e:
             logger.error(f"Market research agent error: {e}")
-            return f"I encountered an error while analyzing the market data. Please try again. Error: {str(e)}"
+            state["error"] = str(e)
+            state["final_response"] = f"I encountered an error while analyzing the market data. Please try again. Error: {str(e)}"
+            return state

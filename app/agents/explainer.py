@@ -1,11 +1,12 @@
 """
 Explainer Agent - Provides clear, educational explanations.
-Forces knowledge base usage for domain-specific terms to prevent hallucination.
+Uses autonomous tool calling - AI decides when to use tools based on knowledge gaps.
 Includes conversation history for context retention.
 """
 
 from groq import AsyncGroq
 import logging
+import json
 
 from ..config import settings, ModelType
 from ..models.agent_state import AgentState
@@ -16,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 class ExplainerAgent:
     """
-    Provides clear, educational explanations using knowledge base.
-    ALWAYS searches knowledge base for domain-specific terms to prevent hallucination.
+    Provides clear, educational explanations using autonomous tool calling.
+    AI autonomously decides when to search KB or web based on knowledge gaps.
     Remembers conversation context for follow-up questions.
     """
     
@@ -51,66 +52,18 @@ class ExplainerAgent:
     
     async def analyze(self, state: AgentState) -> AgentState:
         """
-        Provide educational explanations with conversation memory and knowledge base usage.
-        Uses AI-driven decision from router to determine if web search is needed.
+        Provide educational explanations with autonomous tool usage.
+        AI autonomously decides when to use KB, web search, or internal knowledge.
         """
         query = state["query"]
-        from ..tools.financial_terms import is_financial_term, get_term_definition
+        from ..tools.financial_terms import is_financial_term
         
-        # Check if router AI decided web search is needed
-        needs_web_search = state.get("needs_web_search", False)
-        
-        # If AI determined web search is needed, use browser search
-        if needs_web_search:
-            logger.info(f"🌐 AI detected web search needed for: {query}")
-            try:
-                from ..tools.browser_search import browser_search_general
-                search_result = await browser_search_general(query)
-                
-                system_prompt = """You are Daddys AI's news explainer. Present current information clearly and concisely.
-                
-Format your response:
-1. Start with a brief summary
-2. Key points in bullet form  
-3. Provide context if needed
-4. Keep it accurate and factual
-
-Use the web search results provided to give up-to-date information."""
-                
-                messages = [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Web Search Results:\n{search_result}\n\nUser Query: {query}\n\nProvide a clear, informative response based on these search results."}
-                ]
-                
-                response = await self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    temperature=0.3,
-                    max_tokens=self.max_tokens
-                )
-                
-                state["final_response"] = response.choices[0].message.content
-                state["execution_metadata"] = {
-                    "agent": "explainer",
-                    "used_browser_search": True,
-                    "is_current_events": True
-                }
-                logger.info(f"✅ Current events response generated using browser search")
-                return state
-                
-            except Exception as e:
-                logger.error(f"Browser search failed: {e}, falling back to standard explanation")
-                # Fall through to standard explanation
-        
-        # Check if this is a known financial term or domain-specific query  
-        is_known_financial_term = is_financial_term(query) and not needs_web_search
-        is_domain_query = self._check_domain_query(query) and not needs_web_search
-        
-        # ALWAYS search knowledge base for financial terms and domain queries
+        # Always check knowledge base first for domain terms
         kb_context = ""
         kb_sources = []
+        is_domain_query = self._check_domain_query(query) or is_financial_term(query)
         
-        if is_known_financial_term or is_domain_query:
+        if is_domain_query:
             # Search knowledge base
             results = self.kb_rag.search(query, top_k=2)
             if results:
@@ -122,62 +75,34 @@ Use the web search results provided to give up-to-date information."""
                 for result in results:
                     kb_parts.append(f"\n## Source: {result['title']} ({result['filename']})\n{result['content'][:1500]}")
                 kb_context = "\n---\n**Knowledge Base Context:**\n" + "\n".join(kb_parts)
-            else:
-                logger.warning(f"⚠️ No KB results for financial term: {query}")
         
-        # Universal fallback: If no KB context found (either no results or skipped check), try web search
-        if not kb_context:
-            logger.info(f"📚 No context for '{query}' - automatically using web search")
-            try:
-                from ..tools.browser_search import browser_search_general
-                search_result = await browser_search_general(query)
-                
-                system_prompt = """You are Daddys AI's explainer. Provide clear, educational explanations based on web search results.
-                
-Format your response:
-1. Start with a brief definition/explanation
-2. Break down key concepts
-3. Provide examples if relevant
-4. Keep it simple and educational
-
-Use the web search results provided to give accurate information."""
-                
-                messages = [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Web Search Results:\n{search_result}\n\nUser Query: {query}\n\nProvide a clear, educational explanation based on these search results."}
-                ]
-                
-                response = await self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    temperature=0.3,
-                    max_tokens=self.max_tokens
-                )
-                
-                state["final_response"] = response.choices[0].message.content
-                state["execution_metadata"] = {
-                    "agent": "explainer",
-                    "used_browser_search": True,
-                    "fallback_from_kb": True
-                }
-                logger.info(f"✅ Auto web search successful for unknown term")
-                return state
-                
-            except Exception as e:
-                logger.error(f"Auto web search failed: {e}")
-                # Will fall through to normal response without KB context
-        
+        # Build system prompt with autonomous tool usage instructions
         system_prompt = f"""You are the educational module of Daddys AI, a financial intelligence system built by Adarsh, a 14-year-old student at Daddys International School.
 
 **Your Mission:** Make complex finance simple and accessible for Indian retail investors.
 
+**AUTONOMOUS DECISION FRAMEWORK:**
+
+1. **First:** Check if you have sufficient internal knowledge to answer accurately
+2. **Second:** If internal knowledge is insufficient, check the Knowledge Base Context provided below
+3. **Third:** If BOTH internal knowledge AND Knowledge Base are insufficient, YOU MUST use available tools autonomously:
+   - `search_knowledge_base` - For domain-specific financial terms (WTB, WTT, LTP, trading concepts)
+   - `search_web` - For current events, breaking news, "what's happening", latest updates, recent news
+   - `fetch_nse_quote` - For stock prices and real-time market data
+   - Use tools AUTONOMOUSLY when you detect knowledge gaps - don't ask, just use them
+
+**CRITICAL WHEN TO USE TOOLS:**
+- Query contains "latest", "today", "happening now", "breaking", "current" → USE `search_web` autonomously
+- Financial term not in Knowledge Base Context → USE `search_knowledge_base` first
+- Stock price/market data needed → USE `fetch_nse_quote`
+- Unknown concept AND not in KB → USE `search_web` as fallback
+
 **CRITICAL RULES:**
 1. **ALWAYS cite the source file** when answering from Knowledge Base
-2. For domain-specific terms (WTB, WTT, LTP, etc.), ONLY use the Knowledge Base Context provided
-3. **Format:** Start your response with "📖 Source: [filename]" when using KB
-4. NEVER make up definitions for technical terms
-5. If you don't have verified information, say "I need to search the knowledge base for this"
-6. For follow-up questions like "summarize it", refer to the conversation history
+2. For domain-specific terms (WTB, WTT, LTP, etc.), prioritize Knowledge Base Context
+3. **Format:** Start with "📖 Source: [filename]" when using KB
+4. NEVER make up definitions - if unsure, USE TOOLS
+5. For follow-up questions like "summarize it", refer to conversation history
 
 **Teaching Style:**
 - Use simple language and real-world analogies
@@ -185,14 +110,14 @@ Use the web search results provided to give accurate information."""
 - Break down concepts step-by-step
 - Use ₹ for Indian currency
 - Be conversational yet professional
-- Remember context from previous messages in this conversation
 
 **Knowledge Base Sources Available:**
-{", ".join(kb_sources) if kb_sources else "None"}
+{", ".join(kb_sources) if kb_sources else "None - You may need to use tools autonomously"}"""
 
-If Knowledge Base Context is missing for a domain term, acknowledge it instead of guessing."""
-
-        # Build messages with conversation history for context retention
+        # Import tool definitions
+        from ..tools.tool_definitions import FINANCIAL_TOOLS
+        
+        # Build messages with conversation history
         messages = [{"role": "system", "content": system_prompt}]
         
         # Add conversation history for context
@@ -205,22 +130,64 @@ If Knowledge Base Context is missing for a domain term, acknowledge it instead o
         # Add current query with KB context if available
         user_message = query
         if kb_context:
-            user_message = f"{kb_context}\n\n---\nUser Query: {query}\n\nProvide a clear explanation and CITE THE SOURCE FILE."
+            user_message = f"{kb_context}\n\n---\nUser Query: {query}\n\nProvide a clear explanation. CITE SOURCE if using KB. USE TOOLS if knowledge gap detected."
         
         messages.append({"role": "user", "content": user_message})
         
         try:
+            # First call with tool availability - AI decides autonomously
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 temperature=self.temperature,
-                max_tokens=self.max_tokens
+                max_tokens=self.max_tokens,
+                tools=FINANCIAL_TOOLS,
+                tool_choice="auto"  # Let AI autonomously decide
             )
             
-            explanation = response.choices[0].message.content
+            message = response.choices[0].message
+            tool_calls = message.tool_calls
             
-            # Ensure we never return the system prompt itself
-            if explanation and len(explanation) > 50:  # Valid response
+            # If AI autonomously decided to use tools, execute them
+            if tool_calls:
+                logger.info(f"🛠️ AI autonomously using {len(tool_calls)} tools: {[tc.function.name for tc in tool_calls]}")
+                
+                # Execute tool calls
+                from ..tools.tool_executor import execute_tool
+                tool_results = []
+                
+                for tool_call in tool_calls:
+                    tool_name = tool_call.function.name
+                    tool_args = json.loads(tool_call.function.arguments)
+                    logger.info(f"Executing: {tool_name}({tool_args})")
+                    
+                    result = await execute_tool(tool_name, tool_args)
+                    tool_results.append({
+                        "tool_call_id": tool_call.id,
+                        "role": "tool",
+                        "name": tool_name,
+                        "content": str(result)
+                    })
+                
+                # Add assistant message and tool results
+                messages.append(message)
+                messages.extend(tool_results)
+                
+                # Get final response with tool results
+                final_response = await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens
+                )
+                
+                explanation = final_response.choices[0].message.content
+            else:
+                # No tools used, direct response
+                explanation = message.content
+            
+            # Validate response
+            if explanation and len(explanation) > 50:
                 state["final_response"] = explanation
             else:
                 state["final_response"] = "I apologize, I couldn't generate a proper explanation. Could you rephrase your question?"
@@ -231,10 +198,12 @@ If Knowledge Base Context is missing for a domain term, acknowledge it instead o
                 "temperature": self.temperature,
                 "used_knowledge_base": bool(kb_context),
                 "kb_context_length": len(kb_context) if kb_context else 0,
-                "conversation_history_length": len(conversation_history)
+                "conversation_history_length": len(conversation_history),
+                "autonomous_tool_calls": len(tool_calls) if tool_calls else 0,
+                "tools_used": [tc.function.name for tc in tool_calls] if tool_calls else []
             }
             
-            logger.info(f"Explanation generated with KB usage: {bool(kb_context)}, history: {len(conversation_history)} msgs")
+            logger.info(f"✅ Explanation: KB={bool(kb_context)}, Tools={len(tool_calls) if tool_calls else 0}, History={len(conversation_history)}")
             return state
             
         except Exception as e:
