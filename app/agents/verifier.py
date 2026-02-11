@@ -84,8 +84,9 @@ class VerifierAgent:
         # Now format the main response with structured headings
         try:
             logger.info(f"Attempting to format response of length: {len(cleaned)}")
-            # TEMPORARY: Skip LLM formatting, use basic structure
-            formatted_response = self._add_basic_structure(cleaned)
+            
+            # Use LLM to add proper markdown formatting
+            formatted_response = await self._format_with_structure(cleaned, state)
             
             # Validate formatted response
             if not formatted_response or not formatted_response.strip():
