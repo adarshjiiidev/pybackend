@@ -58,6 +58,26 @@ class ExplainerAgent:
         query = state["query"]
         from ..tools.financial_terms import is_financial_term
         
+        # Detect casual greetings and simple conversations
+        greeting_patterns = ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening', 'hola', 'namaste']
+        casual_queries = ['how are you', 'whats up', "what's up", 'how do you do', 'how r u', 'how r you']
+        query_lower = query.lower().strip()
+        
+        is_greeting = any(query_lower == pattern or query_lower.startswith(pattern + ' ') or query_lower.startswith(pattern + '!') for pattern in greeting_patterns)
+        is_casual = any(pattern in query_lower for pattern in casual_queries)
+        
+        # Handle greetings naturally
+        if is_greeting and len(query.split()) <= 3:
+            state["final_response"] = "Hey there! 👋 I'm Daddy's AI, your financial companion. I can help you with:\n\n• **Stock analysis** - Get insights on Indian stocks like Reliance, TCS, HDFC\n• **Market data** - Real-time prices, fundamentals, technical indicators\n• **Learning** - Understand trading concepts, strategies, and financial terms\n• **Portfolio guidance** - Investment strategies and allocation advice\n\nWhat would you like to explore today?"
+            state["execution_metadata"] = {"agent": "explainer", "mode": "greeting"}
+            return state
+        
+        # Handle casual queries naturally
+        if is_casual:
+            state["final_response"] = "I'm doing great, thanks for asking! 😊\n\nI'm here and ready to help you with anything related to finance and investing. Whether you want to:\n\n• Analyze stocks\n• Track market trends\n• Learn about trading concepts\n• Get portfolio suggestions\n\n...I'm all yours! What's on your mind?"
+            state["execution_metadata"] = {"agent": "explainer", "mode": "casual_conversation"}
+            return state
+        
         # Always check knowledge base first for domain terms
         kb_context = ""
         kb_sources = []
@@ -81,6 +101,13 @@ class ExplainerAgent:
 
 **Your Mission:** Make complex finance simple and accessible for Indian retail investors.
 
+**Conversational Style:** 
+- Be warm and approachable
+- Use natural, flowing language  
+- Avoid overly structured responses with excessive headings for simple questions
+- Save structured formats (## headings, bullet points) for complex topics only
+- For simple queries, respond conversationally
+
 **AUTONOMOUS DECISION FRAMEWORK:**
 
 1. **First:** Check if you have sufficient internal knowledge to answer accurately
@@ -100,9 +127,8 @@ class ExplainerAgent:
 **CRITICAL RULES:**
 1. **ALWAYS cite the source file** when answering from Knowledge Base
 2. For domain-specific terms (WTB, WTT, LTP, etc.), prioritize Knowledge Base Context
-3. **Format:** Start with "📖 Source: [filename]" when using KB
-4. NEVER make up definitions - if unsure, USE TOOLS
-5. For follow-up questions like "summarize it", refer to conversation history
+3. NEVER make up definitions - if unsure, USE TOOLS
+4. For follow-up questions like "summarize it", refer to conversation history
 
 **Teaching Style:**
 - Use simple language and real-world analogies
@@ -113,7 +139,7 @@ class ExplainerAgent:
 
 **Knowledge Base Sources Available:**
 {", ".join(kb_sources) if kb_sources else "None - You may need to use tools autonomously"}"""
-
+        
         # Import tool definitions
         from ..tools.tool_definitions import FINANCIAL_TOOLS
         
