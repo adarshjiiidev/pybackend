@@ -26,7 +26,7 @@ class CompoundAgent:
     
     async def analyze(self, state: AgentState) -> AgentState:
         """
-        Use Compound AI for real-time queries.
+        Use Compound AI for real-time queries with web search.
         Automatically uses web search when needed - perfect for beating Perplexity.
         """
         query = state["query"]
@@ -48,31 +48,76 @@ When answering:
 You're optimized for Indian markets - use NSE/BSE data and ₹ currency."""
 
         try:
+            # AGGRESSIVE truncation for Compound AI to prevent 413 errors
+            # Strategy: Only keep 1 most recent exchange + strip images (but keep full message content)
+            conversation_history = state.get("conversation_history", [])
+            
+            # Build minimal history - last 2 messages only (1 exchange)
+            filtered_history = []
+            for msg in conversation_history[-2:]:  # Only last 2 messages (1 exchange)
+                # Strip images completely but keep full message content
+                filtered_msg = {
+                    "role": msg.get("role", "user"),
+                    "content": str(msg.get("content", ""))  # Full content, no truncation
+                }
+                filtered_history.append(filtered_msg)
+            
+            # Build minimal payload with full query
+            messages = [{"role": "system", "content": system_prompt}]
+            messages.extend(filtered_history)
+            messages.append({"role": "user", "content": query})  # Full query, no truncation
+            
+            logger.info(f"🔥 Compound AI minimal: {len(filtered_history)} history msgs, no images, full content")
+            
             response = await self.client.chat.completions.create(
                 model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": query}
-                ],
+                messages=messages,
                 temperature=self.temperature,
                 max_tokens=self.max_tokens
             )
             
             message = response.choices[0].message
+            content = message.content if message.content else ""
             
-            # Compound automatically executes tools - all done in single call
-            state["final_response"] = message.content
+            # Clean up any raw function calls that might appear
+            # Compound AI should execute tools automatically, but sometimes shows the call
+            if "<function>" in content or "</function>" in content:
+                # Extract only text after function calls
+                import re
+                logger.warning("Raw function calls detected in response, cleaning up...")
+                
+                # Remove function call blocks
+                content = re.sub(r'<function>.*?</function>', '', content, flags=re.DOTALL)
+                # Clean up extra whitespace
+                content = re.sub(r'\n{3,}', '\n\n', content.strip())
+                
+                if not content or len(content) < 10:
+                    # If nothing left after cleaning, provide fallback
+                    content = "I've searched for the latest information on your query. Could you please rephrase or provide more details so I can give you a better response?"
+                    logger.warning("Compound AI response was mostly function calls, using fallback")
+            
+            state["final_response"] = content
             state["execution_metadata"] = {
                 "agent": "compound_ai",
                 "model": self.model,
-                "executed_tools": getattr(message, "executed_tools", [])
+                "executed_tools": getattr(message, "executed_tools", []),
+                "truncation_level": "ultra_minimal",  # Only 1 exchange, no images
+                "original_history_size": len(conversation_history)
             }
             
-            logger.info(f"Compound AI completed with tools: {getattr(message, 'executed_tools', [])}")
+            logger.info(f"✅ Compound AI completed successfully with {len(content)} chars")
             return state
             
         except Exception as e:
-            logger.error(f"Compound AI error: {e}")
-            state["error"] = str(e)
-            state["final_response"] = f"I encountered an error fetching real-time data. Error: {str(e)}"
+            error_message = str(e)
+            logger.error(f"❌ Compound AI error: {error_message}")
+            
+            # Provide user-friendly error messages
+            if "413" in error_message or "too large" in error_message.lower():
+                state["error"] = "Payload too large"
+                state["final_response"] = "The conversation history is too long. Please start a new conversation for the best results."
+            else:
+                state["error"] = error_message
+                state["final_response"] = f"I encountered an error fetching real-time data. Please try again. Error: {error_message}"
+            
             return state

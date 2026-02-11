@@ -126,7 +126,8 @@ async def send_message(
         ).sort("+created_at").to_list()
         
         # Build conversation history for agent
-        conversation_history = [
+        # Truncate to last 10 exchanges (20 messages) to prevent payload bloat
+        raw_history = [
             {
                 "role": msg.role, 
                 "content": msg.content,
@@ -134,6 +135,12 @@ async def send_message(
             }
             for msg in messages[:-1]  # Exclude current message
         ]
+        
+        # Keep only last 20 messages (10 exchanges)
+        conversation_history = raw_history[-20:] if len(raw_history) > 20 else raw_history
+        
+        if len(raw_history) > 20:
+            logger.info(f"Truncated conversation history from {len(raw_history)} to 20 messages")
         
         # Prepare agent state
         state: AgentState = {
@@ -160,6 +167,12 @@ async def send_message(
                     # Execute workflow and get final state
                     final_state = await workflow.ainvoke(state)
                     final_response = final_state.get("final_response", "I apologize, but I couldn't generate a response.")
+                    
+                    # Truncate extremely long responses (max 8000 chars)
+                    MAX_RESPONSE_LENGTH = 8000
+                    if len(final_response) > MAX_RESPONSE_LENGTH:
+                        final_response = final_response[:MAX_RESPONSE_LENGTH] + "\n\n[Response truncated due to length. Please ask follow-up questions for more details.]"
+                        logger.warning(f"Response truncated from {len(final_response)} to {MAX_RESPONSE_LENGTH} chars")
                     
                     # Stream the response word by word
                     words = final_response.split()
