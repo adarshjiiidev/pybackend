@@ -33,8 +33,7 @@ class Settings(BaseSettings):
     model_compound_mini: str = "groq/compound-mini"  # Lightweight compound
     model_fast: str = "llama-3.1-8b-instant"  # Quick routing (14.4K RPD, 6K TPM)
     model_analysis: str = "llama-3.3-70b-versatile"  # Market analysis (1K RPD, 12K TPM)
-    model_creative: str = "llama-3.3-70b-versatile"  # Educational content (UPDATED: 3.1 decommissioned)
-    model_creative: str = "llama-3.3-70b-versatile"  # Educational content (UPDATED: 3.1 decommissioned)
+    model_creative: str = "llama-3.3-70b-versatile"  # Educational content
     model_router: str = "llama-3.1-8b-instant"  # Fast intent classification
     model_vision: str = "meta-llama/llama-4-scout-17b-16e-instruct"  # Vision & Multimodal tasks
     

@@ -4,12 +4,10 @@ Includes rate limiting for protection against abuse.
 """
 
 from fastapi import APIRouter, HTTPException, Depends, Query
-from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 import logging
-import json
 
 from app.models.chat_models import Conversation, Message
 from app.models.db_models import User
@@ -63,7 +61,7 @@ async def send_message(
 ):
     """
     Send a message and get AI response using multi-agent workflow.
-    Supports streaming responses.
+    Returns full JSON response.
     Includes rate limiting protection.
     """
     try:
@@ -158,144 +156,101 @@ async def send_message(
             "error": None
         }
         
-        # Stream AI response
-        if request.stream:
-            async def generate():
-                try:
-                    full_response = ""
-                    
-                    # Execute workflow and get final state
-                    final_state = await workflow.ainvoke(state)
-                    final_response = final_state.get("final_response", "I apologize, but I couldn't generate a response.")
-                    
-                    # Truncate extremely long responses (max 8000 chars)
-                    MAX_RESPONSE_LENGTH = 8000
-                    if len(final_response) > MAX_RESPONSE_LENGTH:
-                        final_response = final_response[:MAX_RESPONSE_LENGTH] + "\n\n[Response truncated due to length. Please ask follow-up questions for more details.]"
-                        logger.warning(f"Response truncated from {len(final_response)} to {MAX_RESPONSE_LENGTH} chars")
-                    
-                    # Stream the response word by word
-                    words = final_response.split()
-                    for i, word in enumerate(words):
-                        chunk = word + (" " if i < len(words) - 1 else "")
-                        yield f"data: {chunk}\n\n"
-                    
-                    # Save AI response
-                    ai_message = Message(
-                        conversation_id=conversation.conversation_id,
-                        role="assistant",
-                        content=final_response,
-                        has_code="```" in final_response
-                    )
-                    await ai_message.insert()
-                    
-                    # Update conversation - count exchanges (user-AI pairs) not individual messages
-                    total_messages = len(messages) + 2  # +2 for current user msg and AI response
-                    conversation.message_count = total_messages // 2  # Divide by 2 to get exchange count
-                    conversation.updated_at = datetime.utcnow()
-                    
-                    # Debug logging
-                    logger.info(f"💬 Conversation {conversation.conversation_id} - exchanges: {conversation.message_count}")
-                    
-                    # Generate AI-powered title if first exchange (2 messages total: 1 user + 1 assistant)
-                    if len(messages) == 1:  # messages list excludes current message, so 1 means first exchange
-                        logger.info("🎯 Triggering title generation for first exchange")
-                        try:
-                            # Use Groq Llama for title generation
-                            from langchain_groq import ChatGroq
-                            from app.config import settings
-                            
-                            llm = ChatGroq(
-                                model="meta-llama/llama-4-scout-17b-16e-instruct",
-                                temperature=0.3,
-                                api_key=settings.groq_api_key
-                            )
-                            
-                            title_prompt = f"""You are a title generator. Create a short, descriptive title for this conversation.
+        # Execute workflow and get full response (simple JSON, no SSE)
+        final_state = await workflow.ainvoke(state)
+        final_response = final_state.get("final_response", "I apologize, but I couldn't generate a response.")
 
-Rules:
-- Use 3-6 words maximum
-- Be clear and specific about the topic
-- Use proper capitalization (title case)
-- No quotes, no punctuation at the end
-- Keep it professional and relevant
+        # Truncate extremely long responses (max 8000 chars)
+        MAX_RESPONSE_LENGTH = 8000
+        if len(final_response) > MAX_RESPONSE_LENGTH:
+            final_response = final_response[:MAX_RESPONSE_LENGTH] + "\n\n[Response truncated due to length. Please ask follow-up questions for more details.]"
+            logger.warning(f"Response truncated from {len(final_response)} to {MAX_RESPONSE_LENGTH} chars")
+
+        # Save AI response
+        ai_message = Message(
+            conversation_id=conversation.conversation_id,
+            role="assistant",
+            content=final_response,
+            has_code="```" in final_response
+        )
+        await ai_message.insert()
+
+        # Update conversation - count exchanges (user-AI pairs) not individual messages
+        total_messages = len(messages) + 2  # +2 for current user msg and AI response
+        conversation.message_count = total_messages // 2  # Divide by 2 to get exchange count
+        conversation.updated_at = datetime.utcnow()
+
+        logger.info(f"💬 Conversation {conversation.conversation_id} - exchanges: {conversation.message_count}")
+
+        # Generate AI-powered title if first exchange (2 messages total: 1 user + 1 assistant)
+        if len(messages) == 1:  # messages list excludes current message, so 1 means first exchange
+            logger.info("🎯 Triggering title generation for first exchange")
+            try:
+                from langchain_groq import ChatGroq
+                from app.config import settings
+
+                llm = ChatGroq(
+                    model="meta-llama/llama-4-scout-17b-16e-instruct",
+                    temperature=0.3,
+                    api_key=settings.groq_api_key
+                )
+
+                title_prompt = f"""You are a title generator for chat conversations. Your job: create a short title that summarizes what this chat is about.
+
+STEP 1 - READ THE CONVERSATION:
+What did the user ask? What did the assistant answer? Identify the main topic.
+
+STEP 2 - CREATE A TITLE:
+- Use 3-6 words ONLY. No more.
+- Be specific: "TCS vs Infosys Comparison" not "Stock Question"
+- Use Title Case (capitalize main words)
+- No quotes, no period at the end
+- No "Chat about" or "Discussion of" - just the topic
+
+STEP 3 - EXAMPLES OF GOOD TITLES:
+- "Reliance Stock Analysis"
+- "PE Ratio Explained"
+- "Portfolio for 10 Lakhs"
+- "Bitcoin Market Outlook"
+
+STEP 4 - EXAMPLES OF BAD TITLES:
+- "A chat about stocks" (too vague)
+- "User asked a question about the market and we discussed" (too long)
+- "Q&A" (not descriptive)
 
 Conversation:
 User: {request.message[:200]}
 Assistant: {final_response[:200]}
 
-Generate only the title, nothing else:"""
-                            
-                            logger.info("🤖 Calling Groq for title generation...")
-                            title_response = await llm.ainvoke(title_prompt)
-                            generated_title = title_response.content.strip().strip('"').strip("'")
-                            
-                            # Clean up the title
-                            if len(generated_title) > 50:
-                                generated_title = generated_title[:50].rsplit(' ', 1)[0] + "..."
-                            
-                            conversation.title = generated_title
-                            logger.info(f"✅ Generated title: {generated_title}")
-                        except Exception as e:
-                            logger.error(f"❌ Title generation error: {e}")
-                            # Fallback to truncation
-                            title_words = request.message.split()[:6]
-                            conversation.title = " ".join(title_words) + ("..." if len(title_words) == 6 else "")
-                            logger.info(f"📝 Fallback title: {conversation.title}")
-                    
-                    await conversation.save()
-                    
-                    # Send final metadata with conversation ID
-                    yield f"data: [DONE]\n\n"
-                    yield f"event: metadata\n"
-                    yield f"data: {conversation.conversation_id}\n\n"
-                    
-                except Exception as e:
-                    logger.error(f"Workflow execution error: {e}")
-                    yield f"data: I apologize, but I encountered an error while processing your request.\n\n"
-                    yield f"data: [DONE]\n\n"
-                    
-                except Exception as e:
-                    logger.error(f"Workflow execution error: {e}")
-                    yield f"data: I apologize, but I encountered an error while processing your request.\n\n"
-                    yield f"data: [DONE]\n\n"
-            
-            return StreamingResponse(
-                generate(),
-                media_type="text/event-stream",
-                headers={
-                    "Cache-Control": "no-cache",
-                    "Connection": "keep-alive",
-                }
-            )
-        else:
-            # Non-streaming response
-            final_state = await workflow.ainvoke(state)
-            response_text = final_state.get("final_response", "I apologize, but I couldn't generate a response.")
-            
-            # Save AI response
-            ai_message = Message(
-                conversation_id=conversation.conversation_id,
-                role="assistant",
-                content=response_text,
-                has_code="```" in response_text
-            )
-            await ai_message.insert()
-            
-            # Update conversation
-            conversation.message_count = len(messages) + 2
-            conversation.updated_at = datetime.utcnow()
-            await conversation.save()
-            
-            return {
-                "conversation_id": conversation.conversation_id,
-                "message": MessageResponse(
-                    message_id=ai_message.message_id,
-                    role=ai_message.role,
-                    content=ai_message.content,
-                    created_at=ai_message.created_at
-                )
+Output ONLY the title. Nothing else. No explanation."""
+
+                logger.info("🤖 Calling Groq for title generation...")
+                title_response = await llm.ainvoke(title_prompt)
+                generated_title = title_response.content.strip().strip('"').strip("'")
+
+                if len(generated_title) > 50:
+                    generated_title = generated_title[:50].rsplit(' ', 1)[0] + "..."
+
+                conversation.title = generated_title
+                logger.info(f"✅ Generated title: {generated_title}")
+            except Exception as e:
+                logger.error(f"❌ Title generation error: {e}")
+                title_words = request.message.split()[:6]
+                conversation.title = " ".join(title_words) + ("..." if len(title_words) == 6 else "")
+                logger.info(f"📝 Fallback title: {conversation.title}")
+
+        await conversation.save()
+
+        return {
+            "conversation_id": conversation.conversation_id,
+            "message": {
+                "message_id": ai_message.message_id,
+                "role": ai_message.role,
+                "content": ai_message.content,
+                "images": ai_message.images if hasattr(ai_message, 'images') else None,
+                "created_at": ai_message.created_at.isoformat()
             }
+        }
     
     except HTTPException:
         raise
@@ -436,5 +391,4 @@ async def delete_conversation(
         raise
     except Exception as e:
         logger.error(f"Error deleting conversation {conversation_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
         raise HTTPException(status_code=500, detail=str(e))

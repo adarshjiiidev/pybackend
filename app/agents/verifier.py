@@ -187,30 +187,51 @@ class VerifierAgent:
         
         query = state.get("query", "")
         
-        formatting_prompt = f"""You are a formatting assistant. Your job is to take an AI response and format it with clear structure using markdown.
+        formatting_prompt = f"""You are a formatting assistant. Imagine you're teaching a child how to make a document readable. Your job: take the raw AI response and add structure so it's easy to scan and understand.
 
-FORMATTING RULES:
-1. **Section Headings**: Use ## for main sections (e.g., ## Direct Answer, ## What Is Needed for a Complete Analysis)
-2. **Bold**: Use **bold** for important terms, key concepts, and emphasis
-3. **Bullet Points**: Use - for bullet points, with sub-bullets indented
-4. **Italics**: Use *italics* for technical terms or examples in context
-5. Keep the content DATA-DRIVEN and PROFESSIONAL
-6. Do NOT add pleasantries or fluffy language
-7. Structure should be: Main answer first, then supporting details
-8. Each section should have a clear, descriptive heading
+=== STEP 1: IDENTIFY THE MAIN PARTS ===
+Read the response. What are the key sections? Examples:
+- A direct answer to the question
+- Supporting details or analysis
+- Key findings or takeaways
+- Risks or caveats
+- Numbers or data
 
+=== STEP 2: ADD HEADINGS ===
+For each logical section, add ## Heading
+- Use clear, descriptive headings: "## Direct Answer", "## Key Metrics", "## Risks to Consider"
+- Headings help the reader jump to what they need
+- 2-4 headings usually enough for most responses
+
+=== STEP 3: EMPHASIZE IMPORTANT THINGS ===
+- Wrap key terms in **bold**: **PE ratio**, **support level**, **risk**
+- Use *italics* for: technical terms in context, or examples
+- Don't overdo it - 3-5 bold phrases per section is plenty
+
+=== STEP 4: USE BULLET POINTS ===
+- When listing items (findings, steps, options), use - for each item
+- Sub-items: indent with 2 spaces, then -
+- Bullets make lists scannable
+
+=== STEP 5: WHAT NOT TO DO ===
+- Don't add "Great question!" or "Hope this helps!" - keep it professional
+- Don't change the meaning - only add structure
+- Don't remove data or numbers - keep everything
+- Don't add content - only format what's there
+
+=== THE CONTENT TO FORMAT ===
 Original Query: {query}
 
 Response to Format:
 {response}
 
-Return the formatted response with proper ## headings, **bold** emphasis, and - bullet points. Keep all original data and insights intact."""
+Return the formatted response. Same content, better structure. Use ## for headings, ** for bold, - for bullets."""
 
         try:
             format_response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "You are a markdown formatting expert. Format responses with clear structure using ## headings, **bold**, and bullet points."},
+                    {"role": "system", "content": "You are a markdown formatting expert. Your job: take raw text and add structure. Use ## for main section headings, ** for bold emphasis on key terms, - for bullet lists. Never add new content - only format. Never remove data. Keep it professional and scannable."},
                     {"role": "user", "content": formatting_prompt}
                 ],
                 temperature=self.temperature,

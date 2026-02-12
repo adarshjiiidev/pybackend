@@ -1,25 +1,35 @@
 """
 Explainer Agent - Provides clear, educational explanations.
-Uses autonomous tool calling - AI decides when to use tools based on knowledge gaps.
-Includes conversation history for context retention.
+FULL AUTONOMY: ReAct-style tool loop - model outputs structured tool calls,
+we parse, execute, and loop. Works with any model, no Groq native tools needed.
 """
 
 from groq import AsyncGroq
 import logging
+import re
 import json
 
 from ..config import settings, ModelType
 from ..models.agent_state import AgentState
 from ..rag import get_kb_rag
+from ..tools.tool_executor import execute_tool
 
 logger = logging.getLogger(__name__)
+
+# Tools Explainer can use autonomously (curated for educational queries)
+EXPLAINER_TOOLS = [
+    "search_knowledge_base",
+    "search_web",
+    "fetch_nse_quote",
+    "search_financial_news",
+    "get_stock_fundamentals",
+]
 
 
 class ExplainerAgent:
     """
-    Provides clear, educational explanations using autonomous tool calling.
-    AI autonomously decides when to search KB or web based on knowledge gaps.
-    Remembers conversation context for follow-up questions.
+    Provides clear, educational explanations with FULL AUTONOMOUS tool usage.
+    Uses ReAct-style loop: model outputs <tool_call>...</tool_call>, we execute and continue.
     """
     
     def __init__(self):
@@ -96,144 +106,141 @@ class ExplainerAgent:
                     kb_parts.append(f"\n## Source: {result['title']} ({result['filename']})\n{result['content'][:1500]}")
                 kb_context = "\n---\n**Knowledge Base Context:**\n" + "\n".join(kb_parts)
         
-        # Build system prompt with autonomous tool usage instructions
-        system_prompt = f"""You are the educational module of Daddys AI, a financial intelligence system built by Adarsh, a 14-year-old student at Daddys International School.
+        # Build system prompt with AUTONOMOUS tool-calling instructions (ReAct format)
+        system_prompt = f"""You are a patient teacher explaining finance to Indian retail investors. Imagine you are teaching a curious child who asks "why?" and "how?" - be clear, use examples, and never assume they know jargon.
 
-**Your Mission:** Make complex finance simple and accessible for Indian retail investors.
+=== PART 1: YOUR TEACHING STYLE ===
+- Use simple language. Replace jargon with plain words when possible.
+- Use real examples: Reliance, TCS, HDFC - Indian stocks they know.
+- Use ₹ for Indian currency.
+- Be warm and encouraging. Say "Great question!" or "Let me break that down."
+- For complex topics: start simple, then add detail. Like building blocks.
 
-**Conversational Style:** 
-- Be warm and approachable
-- Use natural, flowing language  
-- Avoid overly structured responses with excessive headings for simple questions
-- Save structured formats (## headings, bullet points) for complex topics only
-- For simple queries, respond conversationally
+=== PART 2: WHEN TO USE TOOLS (Read this like a recipe) ===
 
-**AUTONOMOUS DECISION FRAMEWORK:**
+BEFORE you answer, ask yourself: "Do I have enough information to answer accurately?"
 
-1. **First:** Check if you have sufficient internal knowledge to answer accurately
-2. **Second:** If internal knowledge is insufficient, check the Knowledge Base Context provided below
-3. **Third:** If BOTH internal knowledge AND Knowledge Base are insufficient, YOU MUST use available tools autonomously:
-   - `search_knowledge_base` - For domain-specific financial terms (WTB, WTT, LTP, trading concepts)
-   - `search_web` - For current events, breaking news, "what's happening", latest updates, recent news
-   - `fetch_nse_quote` - For stock prices and real-time market data
-   - Use tools AUTONOMOUSLY when you detect knowledge gaps - don't ask, just use them
+SITUATION A - User asks about something with "latest", "today", "current", "happening", "breaking":
+→ You NEED fresh data. Use search_web with a query like "latest [topic] India"
+→ Example: "latest Reliance news" → search_web with query "Reliance Industries latest news today"
 
-**CRITICAL WHEN TO USE TOOLS:**
-- Query contains "latest", "today", "happening now", "breaking", "current" → USE `search_web` autonomously
-- Financial term not in Knowledge Base Context → USE `search_knowledge_base` first
-- Stock price/market data needed → USE `fetch_nse_quote`
-- Unknown concept AND not in KB → USE `search_web` as fallback
+SITUATION B - User asks about a financial term (WTB, LTP, RSI, PE ratio, support/resistance) and it's NOT in the context below:
+→ You NEED the knowledge base. Use search_knowledge_base with the term
+→ Example: "What is WTB?" → search_knowledge_base with query "WTB weak towards bottom rules"
 
-**CRITICAL RULES:**
-1. **ALWAYS cite the source file** when answering from Knowledge Base
-2. For domain-specific terms (WTB, WTT, LTP, etc.), prioritize Knowledge Base Context
-3. NEVER make up definitions - if unsure, USE TOOLS
-4. For follow-up questions like "summarize it", refer to conversation history
+SITUATION C - User asks "what is the price of X" or "current value of [stock]":
+→ You NEED real-time data. Use fetch_nse_quote with symbol (e.g. RELIANCE, TCS)
+→ Or get_stock_fundamentals for more detail
 
-**Teaching Style:**
-- Use simple language and real-world analogies
-- Provide examples with Indian stocks (Reliance, TCS, HDFC, etc.)
-- Break down concepts step-by-step
-- Use ₹ for Indian currency
-- Be conversational yet professional
+SITUATION D - User asks about company earnings, quarterly results, or financial news:
+→ Use search_financial_news with the company name
 
-**Knowledge Base Sources Available:**
-{", ".join(kb_sources) if kb_sources else "None - You may need to use tools autonomously"}"""
+SITUATION E - You have enough in the context below to answer:
+→ Do NOT use tools. Just explain using what you have. Cite the source.
+
+=== PART 3: HOW TO CALL A TOOL (Exact format - copy this) ===
+When you need a tool, output EXACTLY this (one tool per response, then wait for results):
+
+<tool_call>
+{{"tool": "TOOL_NAME", "arguments": {{"param": "value"}}}}
+</tool_call>
+
+Tool names and their arguments:
+- search_knowledge_base: arguments = {{"query": "your search phrase"}}
+- search_web: arguments = {{"query": "your search phrase"}}
+- fetch_nse_quote: arguments = {{"symbol": "RELIANCE"}}  (use uppercase)
+- search_financial_news: arguments = {{"query": "company or topic"}}
+- get_stock_fundamentals: arguments = {{"symbol": "TCS"}}
+
+=== PART 4: AFTER YOU GET TOOL RESULTS ===
+- Read the result carefully
+- Synthesize it into your explanation
+- Cite the source: "According to the data..." or "Based on..."
+- If the tool returned nothing useful, say "I couldn't find specific data on that, but here's what I know..."
+- NEVER make up numbers or facts
+
+=== PART 5: WHAT NEVER TO DO ===
+- Never fabricate data. If unsure, say so.
+- Never output more than one <tool_call> at a time - wait for results first
+- Never ignore tool results and give a generic answer
+
+=== PRE-LOADED CONTEXT (use this first before calling tools) ===
+{", ".join(kb_sources) if kb_sources else "None - you will need to use search_knowledge_base or search_web to fetch information"}"""
         
-        # Import tool definitions
-        from ..tools.tool_definitions import FINANCIAL_TOOLS
-        
-        # Build messages with conversation history
         messages = [{"role": "system", "content": system_prompt}]
-        
-        # Add conversation history for context
         conversation_history = state.get("conversation_history", [])
         if conversation_history:
-            logger.info(f"Explainer: Including {len(conversation_history)} messages for context")
-            for msg in conversation_history[-5:]:  # Last 5 messages
+            for msg in conversation_history[-5:]:
                 messages.append({"role": msg["role"], "content": msg["content"]})
         
-        # Add current query with KB context if available
-        user_message = query
-        if kb_context:
-            user_message = f"{kb_context}\n\n---\nUser Query: {query}\n\nProvide a clear explanation. CITE SOURCE if using KB. USE TOOLS if knowledge gap detected."
-        
+        user_message = f"{kb_context}\n\n---\nUser Query: {query}\n\nProvide a clear explanation. USE TOOLS if you need more info. CITE SOURCE when using KB or tool results." if kb_context else f"User Query: {query}\n\nProvide a clear explanation. USE TOOLS autonomously if you need more info."
         messages.append({"role": "user", "content": user_message})
         
+        tools_used = []
+        max_tool_rounds = 3
+        
         try:
-            # First call with tool availability - AI decides autonomously
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens,
-                tools=FINANCIAL_TOOLS,
-                tool_choice="auto"  # Let AI autonomously decide
-            )
-            
-            message = response.choices[0].message
-            tool_calls = message.tool_calls
-            
-            # If AI autonomously decided to use tools, execute them
-            if tool_calls:
-                logger.info(f"🛠️ AI autonomously using {len(tool_calls)} tools: {[tc.function.name for tc in tool_calls]}")
-                
-                # Execute tool calls
-                from ..tools.tool_executor import execute_tool
-                tool_results = []
-                
-                for tool_call in tool_calls:
-                    tool_name = tool_call.function.name
-                    tool_args = json.loads(tool_call.function.arguments)
-                    logger.info(f"Executing: {tool_name}({tool_args})")
-                    
-                    result = await execute_tool(tool_name, tool_args)
-                    tool_results.append({
-                        "tool_call_id": tool_call.id,
-                        "role": "tool",
-                        "name": tool_name,
-                        "content": str(result)
-                    })
-                
-                # Add assistant message and tool results
-                messages.append(message)
-                messages.extend(tool_results)
-                
-                # Get final response with tool results
-                final_response = await self.client.chat.completions.create(
+            for round_num in range(max_tool_rounds + 1):
+                response = await self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
                     temperature=self.temperature,
                     max_tokens=self.max_tokens
                 )
+                content = response.choices[0].message.content or ""
                 
-                explanation = final_response.choices[0].message.content
-            else:
-                # No tools used, direct response
-                explanation = message.content
+                # Parse for <tool_call>...</tool_call>
+                tool_call_match = re.search(r'<tool_call>\s*(\{.*?\})\s*</tool_call>', content, re.DOTALL)
+                
+                if not tool_call_match:
+                    # No tool call - this is the final answer (strip any partial tool blocks)
+                    explanation = re.sub(r'<tool_call>.*?</tool_call>', '', content, flags=re.DOTALL).strip()
+                    if explanation and len(explanation) > 30:
+                        state["final_response"] = explanation
+                    else:
+                        state["final_response"] = content.strip() or "I apologize, I couldn't generate a proper explanation. Could you rephrase?"
+                    break
+                
+                try:
+                    tc = json.loads(tool_call_match.group(1))
+                    tool_name = tc.get("tool", "")
+                    tool_args = tc.get("arguments", {})
+                except json.JSONDecodeError:
+                    logger.warning("Failed to parse tool call JSON, treating as final response")
+                    state["final_response"] = content.strip()
+                    break
+                
+                if tool_name not in EXPLAINER_TOOLS:
+                    logger.warning(f"Explainer requested unknown tool: {tool_name}, ignoring")
+                    messages.append({"role": "assistant", "content": content})
+                    messages.append({"role": "user", "content": f"Tool '{tool_name}' is not available. Use one of: {', '.join(EXPLAINER_TOOLS)}. Or provide your answer without that tool."})
+                    continue
+                
+                logger.info(f"🛠️ Explainer autonomous tool: {tool_name}({tool_args})")
+                tools_used.append(tool_name)
+                result = await execute_tool(tool_name, tool_args)
+                result_str = json.dumps(result, default=str)[:2000]
+                
+                messages.append({"role": "assistant", "content": content})
+                messages.append({"role": "user", "content": f"[Tool Result for {tool_name}]:\n{result_str}\n\nNow synthesize and provide your complete answer to the user. Cite this data when relevant."})
             
-            # Validate response
-            if explanation and len(explanation) > 50:
-                state["final_response"] = explanation
             else:
-                state["final_response"] = "I apologize, I couldn't generate a proper explanation. Could you rephrase your question?"
+                # Max rounds reached - strip any tool call from last response
+                final_text = re.sub(r'<tool_call>.*?</tool_call>', '', content or '', flags=re.DOTALL).strip()
+                state["final_response"] = final_text or "I gathered some data but couldn't fully synthesize. Please try a more specific question."
             
             state["execution_metadata"] = {
                 "agent": "explainer",
                 "model": self.model,
-                "temperature": self.temperature,
                 "used_knowledge_base": bool(kb_context),
-                "kb_context_length": len(kb_context) if kb_context else 0,
-                "conversation_history_length": len(conversation_history),
-                "autonomous_tool_calls": len(tool_calls) if tool_calls else 0,
-                "tools_used": [tc.function.name for tc in tool_calls] if tool_calls else []
+                "autonomous_tools_used": tools_used,
+                "tool_rounds": len(tools_used)
             }
-            
-            logger.info(f"✅ Explanation: KB={bool(kb_context)}, Tools={len(tool_calls) if tool_calls else 0}, History={len(conversation_history)}")
+            logger.info(f"✅ Explainer: KB={bool(kb_context)}, Tools={tools_used}")
             return state
             
         except Exception as e:
             logger.error(f"Explainer agent error: {e}")
             state["error"] = str(e)
-            state["final_response"] = f"I encountered an error while generating the explanation. Please try again."
+            state["final_response"] = "I encountered an error while generating the explanation. Please try again."
             return state

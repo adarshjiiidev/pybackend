@@ -1,24 +1,20 @@
 """
 FastAPI application - Main entry point.
-Provides streaming chat endpoint and session management.
+Provides chat endpoint and session management.
 """
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from fastapi.responses import StreamingResponse
 from contextlib import asynccontextmanager
 import logging
 import uuid
-import asyncio
-import json
 from datetime import datetime
 
 from .config import settings, init_db, close_db
 from .models import ChatRequest, SessionResponse, ConversationHistoryResponse
 from .graph import run_agent_workflow
 from .database import ConversationRepository, SessionRepository
-from .utils import stream_groq_response
 from .api.auth import router as auth_router
 from .api.chat import router as chat_router
 from .api.transcribe import router as transcribe_router
@@ -195,72 +191,51 @@ async def delete_session(session_id: str):
 @app.post("/chat/stream")
 async def chat_stream(request: ChatRequest):
     """
-    Streaming chat endpoint.
-    Executes agent workflow and streams response via Server-Sent Events.
+    Chat endpoint (legacy - returns JSON, no SSE).
+    Executes agent workflow and returns full response.
+    Use /chat/send for the primary chat API with auth and conversations.
     """
-    
-    # Generate session ID if not provided
     session_id = request.session_id or str(uuid.uuid4())
-    
-    async def generate_stream():
-        try:
-            # Retrieve conversation history
-            history_messages = await ConversationRepository.get_conversation_history(
-                session_id=session_id,
-                limit=10
-            )
-            
-            # Format for LLM context
-            conversation_history = []
-            for msg in history_messages:
-                conversation_history.append({"role": "user", "content": msg.user_query})
-                conversation_history.append({"role": "assistant", "content": msg.agent_response})
-            
-            # Run agent workflow
-            logger.info(f"Processing query: {request.query[:100]}...")
-            final_state = await run_agent_workflow(
-                query=request.query,
-                mode=request.mode,
-                session_id=session_id,
-                conversation_history=conversation_history
-            )
-            
-            response_text = final_state.get("final_response", "I apologize, but I couldn't generate a response.")
-            selected_mode = final_state.get("selected_mode", request.mode)
-            metadata = final_state.get("execution_metadata", {})
-            
-            # Stream response
-            async for chunk in stream_groq_response(response_text):
-                yield chunk
-            
-            # Send final metadata chunk
-            yield f"data: {json.dumps({'done': True, 'metadata': metadata})}\n\n"
-            
-            # Save conversation asynchronously (don't block streaming)
-            asyncio.create_task(
-                ConversationRepository.create_message(
-                    session_id=session_id,
-                    user_query=request.query,
-                    agent_mode=selected_mode or request.mode or "auto",
-                    agent_response=response_text,
-                    metadata=metadata
-                )
-            )
-            
-        except Exception as e:
-            logger.error(f"Error in chat stream: {e}")
-            error_message = f"I encountered an error: {str(e)}"
-            yield f"data: {json.dumps({'content': error_message, 'done': True, 'error': True})}\n\n"
-    
-    return StreamingResponse(
-        generate_stream(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"
+
+    try:
+        history_messages = await ConversationRepository.get_conversation_history(
+            session_id=session_id,
+            limit=10
+        )
+
+        conversation_history = []
+        for msg in history_messages:
+            conversation_history.append({"role": "user", "content": msg.user_query})
+            conversation_history.append({"role": "assistant", "content": msg.agent_response})
+
+        logger.info(f"Processing query: {request.query[:100]}...")
+        final_state = await run_agent_workflow(
+            query=request.query,
+            mode=request.mode,
+            session_id=session_id,
+            conversation_history=conversation_history
+        )
+
+        response_text = final_state.get("final_response", "I apologize, but I couldn't generate a response.")
+        selected_mode = final_state.get("selected_mode", request.mode)
+        metadata = final_state.get("execution_metadata", {})
+
+        await ConversationRepository.create_message(
+            session_id=session_id,
+            user_query=request.query,
+            agent_mode=selected_mode or request.mode or "auto",
+            agent_response=response_text,
+            metadata=metadata
+        )
+
+        return {
+            "session_id": session_id,
+            "content": response_text,
+            "metadata": metadata
         }
-    )
+    except Exception as e:
+        logger.error(f"Error in chat: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

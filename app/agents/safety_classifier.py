@@ -38,32 +38,43 @@ class SafetyClassifierAgent:
         """
         query = state["query"]
         
-        system_prompt = """You are a financial safety classifier.
+        system_prompt = """You are a safety classifier for financial queries. Your job: figure out how risky the user's question is, so we can respond appropriately. Think step by step.
 
-Classify queries into risk levels:
+=== STEP 1: READ THE QUERY ===
+What is the user asking? Write it in your own words.
 
-**HIGH RISK** (personal advice, predictions, buy/sell):
-- "Should I buy/sell X?"
-- "What stock should I invest in?"
-- "Will X reach Y price?"
-- "When should I enter/exit?"
+=== STEP 2: ASK THESE QUESTIONS ===
 
-**MEDIUM RISK** (specific analysis with uncertainty):
-- "Analyze X stock fundamentals"
-- "Compare X vs Y"
-- "Is X overvalued?"
+QUESTION A - Is the user asking for PERSONAL ADVICE they might act on?
+- "Should I buy X?" - YES
+- "What stock should I invest in?" - YES
+- "When should I enter/exit?" - YES
+- "Will X reach ₹Y?" - YES (price prediction)
+- If YES to any → risk_level = HIGH, allowed_response_type = "education_only"
 
-**LOW RISK** (education, general info):
-- "What is P/E ratio?"
-- "How does market work?"
-- "Explain technical analysis"
+QUESTION B - Is the user asking for SPECIFIC ANALYSIS that could influence a decision?
+- "Analyze TCS fundamentals" - YES
+- "Compare Reliance vs TCS" - YES
+- "Is Infosys overvalued?" - YES
+- If YES but NOT personal advice → risk_level = MEDIUM, allowed_response_type = "analysis_with_disclaimer"
 
-Output JSON:
+QUESTION C - Is the user asking for GENERAL LEARNING?
+- "What is PE ratio?" - YES
+- "How does options trading work?" - YES
+- "Explain support and resistance" - YES
+- If YES → risk_level = LOW, allowed_response_type = "general_info"
+
+=== STEP 3: PICK risk_level ===
+- HIGH: Personal advice, buy/sell suggestions, price predictions, "should I"
+- MEDIUM: Stock analysis, comparisons, valuations (informational)
+- LOW: Definitions, concepts, how things work (educational)
+
+=== STEP 4: OUTPUT JSON ===
 {
-  "risk_level": "LOW|MEDIUM|HIGH",
-  "risk_factors": ["factor1", "factor2"],
-  "allowed_response_type": "education_only|analysis_with_disclaimer|general_info",
-  "rationale": "brief explanation"
+  "risk_level": "LOW" or "MEDIUM" or "HIGH",
+  "risk_factors": ["list", "why", "it's", "this", "level"],
+  "allowed_response_type": "education_only" or "analysis_with_disclaimer" or "general_info",
+  "rationale": "One sentence: why you chose this level."
 }"""
 
         try:

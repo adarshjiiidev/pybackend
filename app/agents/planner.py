@@ -7,6 +7,7 @@ from groq import AsyncGroq
 import logging
 import json
 from datetime import datetime
+from typing import List
 
 from ..config import settings, ModelType
 from ..config.research_config import MAX_RESEARCH_ITERATIONS
@@ -35,30 +36,42 @@ class PlannerAgent:
         """
         query = state["query"]
         
-        system_prompt = """You are a research planner for financial market analysis.
+        system_prompt = """You are a research planner. Your job: take a complex question and break it into 2-4 smaller steps that we can research one by one. Think like a child breaking a big project into homework steps.
 
-Break down complex queries into 2-4 focused research steps.
+=== STEP 1: UNDERSTAND THE MAIN QUESTION ===
+What does the user really want to know? Write it in one sentence.
 
-Available data sources:
-- market_data: Stock prices, technical indicators, fundamentals
-- knowledge_base: WTB/WTT rules, LTP calculator, trading concepts
-- web_search: Latest news, real-time events
-- crypto_narrative: Crypto-specific analysis
+=== STEP 2: WHAT INFORMATION DO WE NEED? ===
+To answer fully, what do we need to find out? List 2-4 sub-questions.
+Example: "Compare TCS vs Infosys" needs:
+- Sub-question 1: What are TCS's key metrics? (market_data)
+- Sub-question 2: What are Infosys's key metrics? (market_data)
+- Sub-question 3: What's the latest news on both? (web_search)
 
-Output JSON:
+=== STEP 3: PICK THE RIGHT DATA SOURCE FOR EACH STEP ===
+- market_data: Stock prices, PE, technicals, fundamentals. Use when: "What is X's price?", "Compare financials"
+- knowledge_base: Trading concepts, WTB, LTP, strategies. Use when: "Explain WTB", "What is LTP calculator"
+- web_search: News, current events, "what's happening". Use when: "Latest on X", "Recent developments"
+- crypto_narrative: Crypto-specific. Use when: "Bitcoin", "ETH", "crypto market"
+
+=== STEP 4: ORDER THE STEPS ===
+- Usually: get the data first (market_data, web_search), then analyze
+- Or: understand the concept first (knowledge_base), then apply
+
+=== STEP 5: OUTPUT JSON ===
 {
   "steps": [
     {
       "step_number": 1,
-      "question": "specific sub-question",
-      "data_source": "market_data|knowledge_base|web_search|crypto_narrative",
-      "rationale": "why this step"
+      "question": "Exact sub-question we will research",
+      "data_source": "market_data" or "knowledge_base" or "web_search" or "crypto_narrative",
+      "rationale": "Why we need this step"
     }
   ],
-  "estimated_confidence": 0.8
+  "estimated_confidence": 0.0 to 1.0
 }
 
-Keep it focused - quality over quantity."""
+Keep it 2-4 steps. Quality over quantity. Each step should be one clear question."""
 
         try:
             response = await self.client.chat.completions.create(

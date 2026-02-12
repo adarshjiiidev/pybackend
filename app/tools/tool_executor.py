@@ -94,6 +94,44 @@ async def execute_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, A
                 "error": "Technical indicators temporarily disabled",
                 "message": "Historical data source required (Yahoo Finance removed)"
             }
+
+        elif tool_name == "search_knowledge_base":
+            from ..rag import search_knowledge_base as kb_search
+            query = arguments.get("query", "")
+            if not query:
+                return {"error": "Query parameter is required for search_knowledge_base"}
+            result = await kb_search(query)
+            return result
+
+        elif tool_name == "search_financial_news":
+            # Delegate to search_web for now
+            query = arguments.get("query", "")
+            return await execute_tool("search_web", {"query": f"financial news {query}"})
+
+        elif tool_name == "get_stock_fundamentals":
+            symbol = arguments.get("symbol")
+            if symbol:
+                return await execute_tool("fetch_nse_quote", {"symbol": symbol})
+            return {"error": "Symbol parameter is required"}
+
+        elif tool_name == "get_market_sentiment":
+            return await execute_tool("fetch_fii_dii", {})
+
+        elif tool_name == "compare_stocks":
+            symbols = arguments.get("symbols", [])
+            if not symbols:
+                return {"error": "Symbols array is required for compare_stocks"}
+            results = []
+            for sym in symbols[:5]:  # Max 5
+                data = await fetch_nse_quote(sym)
+                results.append({"symbol": sym, "data": data})
+            return {"comparison": results}
+
+        elif tool_name == "get_sector_analysis":
+            return await execute_tool("search_web", {"query": arguments.get("sector", "") + " sector analysis India"})
+
+        elif tool_name == "calculate_portfolio_optimization":
+            return await execute_tool("search_web", {"query": f"portfolio optimization {arguments.get('stocks', [])} risk {arguments.get('risk_level', 'moderate')}"})
         
         else:
             logger.warning(f"Unknown tool: {tool_name}")

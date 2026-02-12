@@ -47,25 +47,39 @@ class RouterAgent:
         should_research = self._should_trigger_research(query, state)
         state["enable_research_loop"] = should_research
         
-        system_prompt = """You are the routing brain of Daddys AI, a financial intelligence system.
+        system_prompt = """You are the routing brain of Daddys AI. Your ONLY job is to pick which specialist handles the user's question.
 
-Your job: Analyze the query and select the appropriate specialist mode.
+Think step by step like a child learning:
 
-**Mode Selection** - Route to the right specialist:
-   - market_research: Deep fundamental analysis, company research
-   - realtime_analysis: Price movements, technical analysis, current trends, latest market news
-   - portfolio: Portfolio optimization, asset allocation
-   - explainer: Educational content, concept clarification, definitions
-   - crypto: Cryptocurrency analysis
+STEP 1 - READ THE QUERY CAREFULLY
+What is the user actually asking? Is it a question, a request, or a greeting?
 
-Respond ONLY with the mode name (no JSON, just the mode string).
+STEP 2 - ASK YOURSELF THESE QUESTIONS IN ORDER:
 
-Examples:
-- "what is happening in japan elections" → explainer
-- "what is RSI in trading" → explainer
-- "latest news on reliance stock" → realtime_analysis
-- "explain portfolio diversification" → explainer
-- "analyze TCS fundamentals" → market_research"""
+Question A: Is the user asking for a DEFINITION or EXPLANATION of a concept?
+- Examples: "What is RSI?", "Explain PE ratio", "How does options trading work?", "What is WTB?"
+- If YES → respond with: explainer
+
+Question B: Is the user asking about CRYPTOCURRENCY (Bitcoin, Ethereum, crypto, blockchain)?
+- Examples: "Bitcoin price", "ETH analysis", "crypto market"
+- If YES → respond with: crypto
+
+Question C: Is the user asking about PORTFOLIO, ALLOCATION, or INVESTMENT STRATEGY?
+- Examples: "How should I allocate 10 lakhs?", "Portfolio for retirement", "Diversification strategy"
+- If YES → respond with: portfolio
+
+Question D: Is the user asking about RIGHT NOW, TODAY, or LATEST (real-time data)?
+- Examples: "Latest news on Reliance", "What's happening in market today", "Current price of TCS"
+- If YES → respond with: realtime_analysis
+
+Question E: Is the user asking for DEEP ANALYSIS of a company or stock (fundamentals, long-term)?
+- Examples: "Analyze TCS fundamentals", "Reliance company research", "Infosys long-term outlook"
+- If YES → respond with: market_research
+
+Question F: If none of the above fit → default to: market_research
+
+STEP 3 - OUTPUT YOUR ANSWER
+Respond with ONLY the mode name. Nothing else. No JSON. No explanation. Just one word from: market_research, realtime_analysis, portfolio, explainer, crypto"""
 
         try:
             response = await self.client.chat.completions.create(
@@ -134,21 +148,41 @@ Examples:
                 role = "User" if msg["role"] == "user" else "AI"
                 context += f"{role}: {msg['content'][:150]}\n"
         
-        prompt = f"""Extract stock symbols from the query. If query uses pronouns (it, that, this), check conversation history.
+        prompt = f"""You are teaching a child how to extract stock symbols from a query. Follow these steps EXACTLY:
 
-IMPORTANT: Do NOT extract symbols if the query is asking for:
-- Definitions or explanations of financial terms/acronyms
-- Trading tools like LTP Calculator, WTB/WTT, COA, SOC, EOR, Max Pain
-- Features, strategies, or trading concepts
-- Educational content about market terminology
+STEP 1 - CHECK: Is the user asking for a definition or explanation of a term?
+- Look for: "what is", "explain", "define", "how does [term] work"
+- Terms that are NOT stocks: PE ratio, RSI, MACD, LTP, WTB, WTT, COA, SOC, EOR, Max Pain, support, resistance
+- If the query is about explaining a concept → return {{"symbols": [], "timeframe": null, "amount": null}}
+- Do NOT treat these as stock symbols even if they look like acronyms
 
-Conversation History:
+STEP 2 - CHECK: Does the query or conversation mention actual company/stock names?
+- Indian stocks: RELIANCE, TCS, INFY, HDFC, ICICI, SBI, ITC, WIPRO, HUL (and similar)
+- Format may be: "RELIANCE", "Reliance", "reliance stock"
+- If the user says "it", "that stock", "this company" → look at conversation history to see what they referred to
+
+STEP 3 - EXTRACT from query or conversation:
+- List all stock symbols found. Use UPPERCASE.
+- If none found → symbols: []
+
+STEP 4 - EXTRACT timeframe (if mentioned):
+- "today", "intraday", "now" → "1d"
+- "week" → "1wk"
+- "month" → "1mo"
+- "year" → "1y"
+- Not mentioned → null
+
+STEP 5 - EXTRACT amount in lakhs/crores (if mentioned):
+- "10 lakh", "5 crore" → convert to number
+- Not mentioned → null
+
+Conversation History (use this to resolve "it", "that", "this"):
 {context}
 
 Current Query: {query}
 
-Respond with JSON: {{"symbols": ["SYMBOL1"], "timeframe": "1y", "amount": null}}
-If no symbols or if asking for term definition/tool explanation, return {{"symbols": [], "timeframe": null, "amount": null}}"""
+Respond with ONLY valid JSON, no other text:
+{{"symbols": ["SYMBOL1", "SYMBOL2"], "timeframe": "1y" or null, "amount": number or null}}"""
 
         try:
             response = await self.client.chat.completions.create(

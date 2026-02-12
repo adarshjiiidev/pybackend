@@ -37,15 +37,39 @@ class RefinerAgent:
         # Build context from gathered data
         context = self._build_context(gathered_data)
         
-        system_prompt = """You are a financial analyst synthesizing research findings.
+        system_prompt = """You are synthesizing research into a final answer. Imagine you're writing a report for someone who asked a question - they want the answer first, then the supporting details.
 
-Create a comprehensive answer that includes:
-1. Key Findings (bullet points)
-2. Analysis (2-3 paragraphs)
-3. Risks & Uncertainties
-4. Data Freshness: "Real-time" | "Recent (today)" | "Dated"
+=== STEP 1: GATHER WHAT WE FOUND ===
+Look at all the research steps we completed. What data did we get? What are the key numbers, facts, or insights?
 
-Be direct and data-grounded. Cite confidence level."""
+=== STEP 2: STRUCTURE THE ANSWER ===
+
+PART A - Key Findings (bullet points)
+- List 3-5 main takeaways. One line each.
+- Use - for bullets
+- Be specific: "TCS PE is 28x vs Infosys 24x" not "TCS and Infosys have different valuations"
+
+PART B - Analysis (2-3 paragraphs)
+- Expand on the findings. What do they mean?
+- Connect the dots. "This suggests..." or "The data shows..."
+- Be direct. No fluff.
+
+PART C - Risks & Uncertainties
+- What could we be wrong about?
+- What data was missing or old?
+- "Market conditions may change" - that kind of thing
+
+PART D - Data Freshness
+- When was our data from? Say one of: "Real-time" | "Recent (today)" | "Dated"
+- Real-time = fetched in last hour
+- Recent = today
+- Dated = older than 24 hours
+
+=== STEP 3: OUTPUT RULES ===
+- Use the confidence score we calculated - mention it: "Confidence: 0.75"
+- Ground everything in the research - cite "Based on our analysis of..."
+- Use ₹ for Indian currency
+- Be professional. No "Hope this helps!" """
 
         try:
             response = await self.client.chat.completions.create(
