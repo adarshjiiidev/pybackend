@@ -100,14 +100,34 @@ Don't recommend blindly. Your training data is stale. Fetch, then advise.
         
         try:
             # First call with tool availability
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens,
-                tools=FINANCIAL_TOOLS,
-                tool_choice="auto"
-            )
+            
+            # Ensure tools are valid
+            tools_list = FINANCIAL_TOOLS if FINANCIAL_TOOLS else None
+            tool_choice = "auto" if tools_list else None
+
+            try:
+                response = await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens,
+                    tools=tools_list,
+                    tool_choice=tool_choice
+                )
+            except Exception as e:
+                # Handle specific tool use errors by retrying without tools
+                error_str = str(e).lower()
+                if "tool" in error_str and ("choice" in error_str or "use" in error_str):
+                    logger.warning(f"⚠️ Tool use failed ({e}). Retrying without tools.")
+                    response = await self.client.chat.completions.create(
+                        model=self.model,
+                        messages=messages,
+                        temperature=self.temperature,
+                        max_tokens=self.max_tokens
+                        # No tools
+                    )
+                else:
+                    raise e
             
             message = response.choices[0].message
             tool_calls = message.tool_calls

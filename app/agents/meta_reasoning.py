@@ -151,9 +151,12 @@ RULES:
                     call_params["tools"] = self.tools
                     call_params["tool_choice"] = "auto"
                 
-                # Special parameters for first iteration only
+                # Special reasoning parameters for first iteration only
                 if iteration == 1:
-                    call_params["reasoning_effort"] = self.reasoning_effort
+                    # Reasoning effort is only supported for GPT-OSS and Qwen reasoning models
+                    if self.reasoning_effort is not None:
+                        call_params["reasoning_effort"] = self.reasoning_effort
+                    # Control whether the API returns explicit reasoning content
                     call_params["include_reasoning"] = settings.include_reasoning
                 
                 response = await self.client.chat.completions.create(**call_params)

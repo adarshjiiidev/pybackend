@@ -6,7 +6,7 @@ uvicorn[standard]==0.32.0
 langchain==0.3.0
 langgraph==0.2.45
 langchain-groq==0.2.1
-groq==0.11.0
+groq==1.0.0
 
 # Database
 motor==3.6.0
