@@ -98,39 +98,43 @@ def route_to_agent(state: AgentState) -> Literal[
 ]:
     """
     Conditional routing based on selected mode and query content.
-    Routes to Compound AI for real-time needs, otherwise to specialist agents.
+    
+    Priority: GPT-OSS (deep_reasoning) for most queries — it has search_web tool
+    and is MUCH faster than Compound. Compound only for deep multi-source research.
     """
     selected_mode = state.get("selected_mode", AgentMode.MARKET_RESEARCH.value)
     query_lower = state["query"].lower()
     
-    # Route to Compound AI for real-time queries (beats Perplexity with live data)
-    if settings.prefer_compound_for_realtime and settings.enable_compound_ai:
-        realtime_keywords = ["latest", "news", "today", "current", "now", "breaking", "recent", "update"]
-        if any(kw in query_lower for kw in realtime_keywords):
-            logger.info("Routing to Compound AI for real-time query")
-            return "compound_ai"
-    
-    # Route explainer queries to explainer
+    # Route explainer queries first (greetings, terms, concepts)
     if selected_mode == AgentMode.EXPLAINER.value:
         return "explainer"
     
-    # Route portfolio queries to portfolio
-    elif selected_mode == AgentMode.PORTFOLIO.value:
+    # Route portfolio queries
+    if selected_mode == AgentMode.PORTFOLIO.value:
         return "portfolio"
     
-    # REMOVED: Crypto routing (CryptoAgent not available)
-    
-    # Route real-time analysis to realtime agent
-    elif selected_mode == AgentMode.REALTIME_ANALYSIS.value:
+    # Route realtime analysis (prices, intraday)
+    if selected_mode == AgentMode.REALTIME_ANALYSIS.value:
         return "realtime_analysis"
     
-    # Route market research to deep reasoning (GPT-OSS-120B)
-    elif selected_mode == AgentMode.MARKET_RESEARCH.value:
-        return "deep_reasoning"
+    # Compound AI: ONLY for deep multi-source research tasks that EXPLICITLY need
+    # exhaustive web crawling across many sources (it's slow but thorough).
+    # Examples: "compare quarterly results of top 10 IT stocks", "comprehensive sector report"
+    if settings.enable_compound_ai:
+        deep_research_signals = [
+            "comprehensive report",
+            "detailed analysis across",
+            "compare quarterly results",
+            "in-depth research",
+            "full sector report",
+        ]
+        if any(signal in query_lower for signal in deep_research_signals):
+            logger.info("Routing to Compound AI for deep multi-source research")
+            return "compound_ai"
     
-    # Default to deep reasoning
-    else:
-        return "deep_reasoning"
+    # Everything else → GPT-OSS deep_reasoning (has search_web tool, fast)
+    # This includes: "latest news", "what's happening", "current", all market_research
+    return "deep_reasoning"
 
 
 def create_agent_graph() -> StateGraph:

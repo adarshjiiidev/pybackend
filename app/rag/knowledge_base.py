@@ -208,7 +208,7 @@ async def search_knowledge_base(query: str) -> Dict[str, Any]:
     """
     try:
         kb = get_kb_rag()
-        results = kb.search(query, top_k=2)
+        results = kb.search(query, top_k=3)
         
         if not results:
             return {
@@ -223,11 +223,12 @@ async def search_knowledge_base(query: str) -> Dict[str, Any]:
                     "title": r["title"],
                     "filename": r["filename"],
                     "topics": r.get("topics", []),
-                    "preview": r["content"][:600] + "..." if len(r["content"]) > 600 else r["content"]
+                    "content": r["content"][:1500] + ("..." if len(r["content"]) > 1500 else "")
                 }
                 for r in results
             ],
-            "matched_topics": list(set([t for r in results for t in r.get("topics", [])]))
+            "matched_topics": list(set([t for r in results for t in r.get("topics", [])])),
+            "tip": "Use this knowledge to give a thorough, accurate answer. Cite the source naturally."
         }
     except Exception as e:
         logger.error(f"Knowledge base search error: {e}")

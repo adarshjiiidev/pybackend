@@ -37,19 +37,26 @@ class VerifierAgent:
         """
         raw_response = state.get("final_response", "")
         images = state.get("images", [])
+        metadata = state.get("execution_metadata") or {}
         
-        # If images present, ALWAYS analyze them (whether response exists or not)
-        if images:
+        # Skip verifier entirely for greetings, casual, and thanks — they don't need formatting
+        if metadata.get("skip_verifier"):
+            logger.info("⏭️ Skipping verifier for greeting/casual/thanks response")
+            return state
+        
+        # Only run image analysis when response is missing or generic (agent didn't process images)
+        generic_phrases = ["provide text", "haven't provided", "no text", "provide the", "share the image", "upload an image"]
+        is_generic = raw_response and len(raw_response) < 300 and any(p in raw_response.lower() for p in generic_phrases)
+        needs_image_analysis = images and (not raw_response or len(raw_response.strip()) < 50 or is_generic)
+        
+        if needs_image_analysis:
             logger.info(f"🖼️ Analyzing {len(images)} image(s) with vision model")
             image_analysis = await self._analyze_images(state)
             
-            # If we have both image analysis and existing response, combine them
-            if raw_response:
-                # Prepend image analysis to existing response
+            if raw_response and not is_generic:
                 raw_response = f"{image_analysis}\n\n---\n\n{raw_response}"
                 logger.info("Combined image analysis with existing response")
             else:
-                # Use image analysis as the response
                 raw_response = image_analysis
                 logger.info("Using image analysis as primary response")
             
@@ -83,7 +90,7 @@ class VerifierAgent:
             reasoning_text = '\n'.join(formatted_reasoning)
         elif raw_response and len(raw_response) > 100:
             # FORCE REASONING: Generate simple reasoning steps for responses without it
-            agent = state.get("execution_metadata", {}).get("agent", "unknown")
+            agent = (state.get("execution_metadata") or {}).get("agent", "unknown")
             query = state.get("query", "user query")
             
             reasoning_text = f"""
@@ -187,54 +194,33 @@ class VerifierAgent:
         
         query = state.get("query", "")
         
-        formatting_prompt = f"""You are a formatting assistant. Imagine you're teaching a child how to make a document readable. Your job: take the raw AI response and add structure so it's easy to scan and understand.
+        formatting_prompt = f"""Improve the readability of this content. Your job is ONLY to improve structure, not change content.
 
-=== STEP 1: IDENTIFY THE MAIN PARTS ===
-Read the response. What are the key sections? Examples:
-- A direct answer to the question
-- Supporting details or analysis
-- Key findings or takeaways
-- Risks or caveats
-- Numbers or data
+RULES:
+- If the content is short (under 200 words), DON'T add headings. Just clean up spacing.
+- If the content has data comparisons, add a markdown table.
+- If the content is long (400+ words), add ## section headings to break it up.
+- Use **bold** for key terms and numbers.
+- DON'T add bullet points unless there are 3+ items that are genuinely a list.
+- DON'T change facts, numbers, or meaning.
+- DON'T add your own commentary.
+- Keep the original conversational tone. Don't make it corporate.
 
-=== STEP 2: ADD HEADINGS ===
-For each logical section, add ## Heading
-- Use clear, descriptive headings: "## Direct Answer", "## Key Metrics", "## Risks to Consider"
-- Headings help the reader jump to what they need
-- 2-4 headings usually enough for most responses
+User query: {query}
 
-=== STEP 3: EMPHASIZE IMPORTANT THINGS ===
-- Wrap key terms in **bold**: **PE ratio**, **support level**, **risk**
-- Use *italics* for: technical terms in context, or examples
-- Don't overdo it - 3-5 bold phrases per section is plenty
-
-=== STEP 4: USE BULLET POINTS ===
-- When listing items (findings, steps, options), use - for each item
-- Sub-items: indent with 2 spaces, then -
-- Bullets make lists scannable
-
-=== STEP 5: WHAT NOT TO DO ===
-- Don't add "Great question!" or "Hope this helps!" - keep it professional
-- Don't change the meaning - only add structure
-- Don't remove data or numbers - keep everything
-- Don't add content - only format what's there
-
-=== THE CONTENT TO FORMAT ===
-Original Query: {query}
-
-Response to Format:
+Content to format:
 {response}
 
-Return the formatted response. Same content, better structure. Use ## for headings, ** for bold, - for bullets."""
+Output ONLY the formatted content."""
 
         try:
             format_response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "You are a markdown formatting expert. Your job: take raw text and add structure. Use ## for main section headings, ** for bold emphasis on key terms, - for bullet lists. Never add new content - only format. Never remove data. Keep it professional and scannable."},
+                    {"role": "system", "content": "You improve text structure for readability. Use ## for section headings, ** for bold, - for bullets. Output only the formatted text—never instructions or meta-commentary."},
                     {"role": "user", "content": formatting_prompt}
                 ],
-                temperature=self.temperature,
+                temperature=0.2,
                 max_tokens=self.max_tokens
             )
             

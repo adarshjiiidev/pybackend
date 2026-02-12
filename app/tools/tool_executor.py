@@ -4,6 +4,7 @@ Uses NSE Scraper and Compound AI only.
 """
 
 import logging
+import asyncio
 from typing import Dict, Any
 from datetime import datetime
 
@@ -121,10 +122,15 @@ async def execute_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, A
             symbols = arguments.get("symbols", [])
             if not symbols:
                 return {"error": "Symbols array is required for compare_stocks"}
-            results = []
-            for sym in symbols[:5]:  # Max 5
-                data = await fetch_nse_quote(sym)
-                results.append({"symbol": sym, "data": data})
+            # Parallel fetch — all quotes concurrently instead of sequential
+            capped = symbols[:5]
+            data_list = await asyncio.gather(
+                *[fetch_nse_quote(sym) for sym in capped]
+            )
+            results = [
+                {"symbol": sym, "data": data}
+                for sym, data in zip(capped, data_list)
+            ]
             return {"comparison": results}
 
         elif tool_name == "get_sector_analysis":

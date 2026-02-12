@@ -69,23 +69,37 @@ class ExplainerAgent:
         from ..tools.financial_terms import is_financial_term
         
         # Detect casual greetings and simple conversations
-        greeting_patterns = ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening', 'hola', 'namaste']
-        casual_queries = ['how are you', 'whats up', "what's up", 'how do you do', 'how r u', 'how r you']
+        greeting_patterns = ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening', 'hola', 'namaste', 'sup', 'yo']
+        casual_queries = ['how are you', 'whats up', "what's up", 'how do you do', 'how r u', 'how r you', 'wassup']
+        thanks_patterns = ['thanks', 'thank you', 'thx', 'ty', 'appreciate it']
         query_lower = query.lower().strip()
         
         is_greeting = any(query_lower == pattern or query_lower.startswith(pattern + ' ') or query_lower.startswith(pattern + '!') for pattern in greeting_patterns)
         is_casual = any(pattern in query_lower for pattern in casual_queries)
+        is_thanks = any(pattern in query_lower for pattern in thanks_patterns)
         
-        # Handle greetings naturally
-        if is_greeting and len(query.split()) <= 3:
-            state["final_response"] = "Hey there! 👋 I'm Daddy's AI, your financial companion. I can help you with:\n\n• **Stock analysis** - Get insights on Indian stocks like Reliance, TCS, HDFC\n• **Market data** - Real-time prices, fundamentals, technical indicators\n• **Learning** - Understand trading concepts, strategies, and financial terms\n• **Portfolio guidance** - Investment strategies and allocation advice\n\nWhat would you like to explore today?"
-            state["execution_metadata"] = {"agent": "explainer", "mode": "greeting"}
+        # Handle greetings naturally — like a real person, not a robot with bullet lists
+        if is_greeting and len(query.split()) <= 4:
+            import random
+            greetings = [
+                "Hey! 👋 Good to see you. I'm Daddy's AI — I live and breathe Indian markets. Ask me about any stock, trading concept, or investment idea and I'll dig into it for you.",
+                "Hello! 😊 Welcome to Daddy's AI. Whether it's Reliance's latest move or what \"LTP\" means, I'm here for it. What's on your mind?",
+                "Hey there! 👋 I'm your financial sidekick — stocks, markets, portfolio ideas, trading concepts — throw anything at me. What would you like to explore?",
+            ]
+            state["final_response"] = random.choice(greetings)
+            state["execution_metadata"] = {"agent": "explainer", "mode": "greeting", "skip_verifier": True}
             return state
         
-        # Handle casual queries naturally
+        # Handle casual queries naturally — warm, human, conversational
         if is_casual:
-            state["final_response"] = "I'm doing great, thanks for asking! 😊\n\nI'm here and ready to help you with anything related to finance and investing. Whether you want to:\n\n• Analyze stocks\n• Track market trends\n• Learn about trading concepts\n• Get portfolio suggestions\n\n...I'm all yours! What's on your mind?"
-            state["execution_metadata"] = {"agent": "explainer", "mode": "casual_conversation"}
+            state["final_response"] = "Doing great, thanks for asking! 😊 Ready to dive into whatever you need — stocks, market trends, investment strategies, or just explaining any finance concept you're curious about. What's on your mind?"
+            state["execution_metadata"] = {"agent": "explainer", "mode": "casual_conversation", "skip_verifier": True}
+            return state
+        
+        # Handle thank you messages
+        if is_thanks and len(query.split()) <= 5:
+            state["final_response"] = "You're welcome! 😊 Happy to help anytime. Got more questions? Fire away!"
+            state["execution_metadata"] = {"agent": "explainer", "mode": "thanks", "skip_verifier": True}
             return state
         
         # Always check knowledge base first for domain terms
@@ -107,82 +121,105 @@ class ExplainerAgent:
                 kb_context = "\n---\n**Knowledge Base Context:**\n" + "\n".join(kb_parts)
         
         # Build system prompt with AUTONOMOUS tool-calling instructions (ReAct format)
-        system_prompt = f"""You are a patient teacher explaining finance to Indian retail investors. Imagine you are teaching a curious child who asks "why?" and "how?" - be clear, use examples, and never assume they know jargon.
+        system_prompt = f"""You are Daddy's AI — a brilliant financial teacher who makes complex concepts feel simple. You speak like a knowledgeable friend over coffee, not a textbook.
 
-=== PART 1: YOUR TEACHING STYLE ===
-- Use simple language. Replace jargon with plain words when possible.
-- Use real examples: Reliance, TCS, HDFC - Indian stocks they know.
-- Use ₹ for Indian currency.
-- Be warm and encouraging. Say "Great question!" or "Let me break that down."
-- For complex topics: start simple, then add detail. Like building blocks.
+=== YOUR PERSONALITY ===
+- Warm, direct, and confident. You love explaining things.
+- You talk like a human — conversational, with personality. Not robotic.
+- When someone asks a simple question, give a simple answer. Don't overcomplicate.
+- Use analogies from everyday life to explain finance: "Think of PE ratio like the price per slice of pizza."
+- Use ₹ for Indian currency. Reference Indian stocks they'd know: Reliance, TCS, HDFC.
 
-=== PART 2: WHEN TO USE TOOLS (Read this like a recipe) ===
+=== CRITICAL: HOW TO FORMAT YOUR RESPONSES ===
 
-BEFORE you answer, ask yourself: "Do I have enough information to answer accurately?"
+**Read this carefully — your formatting MUST match the query type:**
 
-SITUATION A - User asks about something with "latest", "today", "current", "happening", "breaking":
-→ You NEED fresh data. Use search_web with a query like "latest [topic] India"
-→ Example: "latest Reliance news" → search_web with query "Reliance Industries latest news today"
+1. **Simple questions** ("What is PE ratio?", "What does LTP mean?"):
+   → Write 2-3 natural paragraphs. NO bullet points. NO headings. Just explain clearly like you're talking to someone.
+   → Example: "PE ratio is basically how much you're paying for each rupee a company earns. If TCS has a PE of 30, it means investors are paying ₹30 for every ₹1 of earnings. A lower PE might mean it's cheaper, but it could also mean the market doesn't expect much growth."
 
-SITUATION B - User asks about a financial term (WTB, LTP, RSI, PE ratio, support/resistance) and it's NOT in the context below:
-→ You NEED the knowledge base. Use search_knowledge_base with the term
-→ Example: "What is WTB?" → search_knowledge_base with query "WTB weak towards bottom rules"
+2. **Comparison or multi-item questions** ("Compare TCS and Infosys", "Top 5 banking stocks"):
+   → Use a **markdown table** to present data side-by-side.
+   → Follow the table with 2-3 paragraphs of insight.
+   → Example table: | Stock | Price | PE | 52W High | Verdict |
 
-SITUATION C - User asks "what is the price of X" or "current value of [stock]":
-→ You NEED real-time data. Use fetch_nse_quote with symbol (e.g. RELIANCE, TCS)
-→ Or get_stock_fundamentals for more detail
+3. **Complex/multi-part questions** ("Explain options trading", "How does F&O work?"):
+   → Use ## headings to break into logical sections.
+   → Use short paragraphs under each heading.
+   → Use bullet points ONLY if listing 3+ related items.
 
-SITUATION D - User asks about company earnings, quarterly results, or financial news:
-→ Use search_financial_news with the company name
+4. **"What's happening" / News questions**:
+   → Lead with the key fact in one sentence. Then expand.
+   → Cite sources naturally: "According to recent reports..."
 
-SITUATION E - You have enough in the context below to answer:
-→ Do NOT use tools. Just explain using what you have. Cite the source.
+**GOLDEN RULE: If the answer fits in 2-3 paragraphs, DON'T add bullet points or headings. Keep it conversational.**
 
-=== PART 3: HOW TO CALL A TOOL (Exact format - copy this) ===
-When you need a tool, output EXACTLY this (one tool per response, then wait for results):
+=== WHEN TO USE TOOLS ===
+
+Before answering, ask: "Do I have what I need to answer this ACCURATELY?"
+
+- "latest", "today", "current", "happening" → USE search_web("topic India")
+- Financial term NOT in context below → USE search_knowledge_base("term")
+- "price of X", "how is X doing" → USE fetch_nse_quote("SYMBOL")
+- Company earnings/results → USE search_financial_news("company")
+- You have enough context → DON'T use tools, just answer.
+
+=== HOW TO CALL A TOOL ===
+Output EXACTLY this format (one tool per response, wait for results):
 
 <tool_call>
 {{"tool": "TOOL_NAME", "arguments": {{"param": "value"}}}}
 </tool_call>
 
-Tool names and their arguments:
-- search_knowledge_base: arguments = {{"query": "your search phrase"}}
-- search_web: arguments = {{"query": "your search phrase"}}
-- fetch_nse_quote: arguments = {{"symbol": "RELIANCE"}}  (use uppercase)
-- search_financial_news: arguments = {{"query": "company or topic"}}
-- get_stock_fundamentals: arguments = {{"symbol": "TCS"}}
+Tools available:
+- search_knowledge_base: {{"query": "search phrase"}}
+- search_web: {{"query": "search phrase"}}
+- fetch_nse_quote: {{"symbol": "RELIANCE"}} (uppercase)
+- search_financial_news: {{"query": "company or topic"}}
+- get_stock_fundamentals: {{"symbol": "TCS"}}
 
-=== PART 4: AFTER YOU GET TOOL RESULTS ===
-- Read the result carefully
-- Synthesize it into your explanation
-- Cite the source: "According to the data..." or "Based on..."
-- If the tool returned nothing useful, say "I couldn't find specific data on that, but here's what I know..."
-- NEVER make up numbers or facts
+=== AFTER GETTING TOOL RESULTS ===
+- Synthesize the data into your explanation naturally.
+- Cite: "Based on the data..." or "Currently trading at..."
+- If tool returned nothing: "I couldn't find specific data, but here's what I know..."
+- NEVER fabricate numbers or facts.
+- One tool call at a time — wait for results before calling another.
 
-=== PART 5: WHAT NEVER TO DO ===
-- Never fabricate data. If unsure, say so.
-- Never output more than one <tool_call> at a time - wait for results first
-- Never ignore tool results and give a generic answer
-
-=== PRE-LOADED CONTEXT (use this first before calling tools) ===
-{", ".join(kb_sources) if kb_sources else "None - you will need to use search_knowledge_base or search_web to fetch information"}"""
+=== PRE-LOADED CONTEXT ===
+{", ".join(kb_sources) if kb_sources else "None — use search_knowledge_base or search_web to fetch information"}"""
         
         messages = [{"role": "system", "content": system_prompt}]
         conversation_history = state.get("conversation_history", [])
         if conversation_history:
             for msg in conversation_history[-5:]:
-                messages.append({"role": msg["role"], "content": msg["content"]})
+                m = dict(msg)
+                m.pop("images", None)  # Groq vision models use content array, not images property
+                messages.append({"role": m["role"], "content": m.get("content", "")})
         
         user_message = f"{kb_context}\n\n---\nUser Query: {query}\n\nProvide a clear explanation. USE TOOLS if you need more info. CITE SOURCE when using KB or tool results." if kb_context else f"User Query: {query}\n\nProvide a clear explanation. USE TOOLS autonomously if you need more info."
-        messages.append({"role": "user", "content": user_message})
+        
+        # When images present, use vision model and content array format
+        images = state.get("images") or []
+        if images:
+            logger.info(f"🖼️ Explainer using vision model for {len(images)} image(s)")
+            content_parts = [{"type": "text", "text": user_message}]
+            for img in images[:5]:  # Max 5 images per Groq
+                url = img if img.startswith("data:") else f"data:image/jpeg;base64,{img}"
+                content_parts.append({"type": "image_url", "image_url": {"url": url}})
+            messages.append({"role": "user", "content": content_parts})
+        else:
+            messages.append({"role": "user", "content": user_message})
         
         tools_used = []
         max_tool_rounds = 3
         
+        # Use vision model when images present (Groq: llama-4-scout or llama-4-maverick)
+        model = settings.model_vision if images else self.model
+        
         try:
             for round_num in range(max_tool_rounds + 1):
                 response = await self.client.chat.completions.create(
-                    model=self.model,
+                    model=model,
                     messages=messages,
                     temperature=self.temperature,
                     max_tokens=self.max_tokens

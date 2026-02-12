@@ -2,12 +2,14 @@
 Router/Planner Agent - Intent classification and mode selection.
 Analyzes user queries and routes to appropriate specialist agent.
 Uses FAST model for quick classification.
+Parallelized: classification + entity extraction run concurrently.
 """
 
 from groq import AsyncGroq
 from typing import Optional, Any
 import logging
 import re
+import asyncio
 
 from ..config import settings, ModelType
 from ..models.agent_state import AgentState, AgentMode
@@ -82,18 +84,24 @@ STEP 3 - OUTPUT YOUR ANSWER
 Respond with ONLY the mode name. Nothing else. No JSON. No explanation. Just one word from: market_research, realtime_analysis, portfolio, explainer, crypto"""
 
         try:
-            response = await self.client.chat.completions.create(
+            # --- PARALLEL: run classification + entity extraction concurrently ---
+            classification_coro = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Analyze this query: {query}"}
+                    {"role": "user", "content": f"Analyze this query: {query}"},
                 ],
                 temperature=self.temperature,
-                max_tokens=100
+                max_tokens=100,
             )
-            
-            import json
-            result_text = response.choices[0].message.content.strip()
+            entity_coro = self._extract_entities_with_context(query, conversation_history)
+
+            classification_response, entities = await asyncio.gather(
+                classification_coro, entity_coro
+            )
+            # --- END PARALLEL ---
+
+            result_text = classification_response.choices[0].message.content.strip()
             
             # Parse response - now it's just a mode string
             mode = result_text.lower()
@@ -109,8 +117,6 @@ Respond with ONLY the mode name. Nothing else. No JSON. No explanation. Just one
             
             selected_mode = valid_modes.get(mode, AgentMode.MARKET_RESEARCH)
             
-            # Extract entities with conversation context
-            entities = await self._extract_entities_with_context(query, conversation_history)
             state["extracted_entities"] = entities
             
             # Override mode to explainer if it's a financial term query with no stock symbols

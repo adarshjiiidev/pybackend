@@ -209,13 +209,13 @@ FINANCIAL_TOOLS = [
         "type": "function",
         "function": {
             "name": "search_knowledge_base",
-            "description": "Search domain-specific knowledge base for information about fundamentals, LTP calculator, WTB/WTT shifting, trading strategies, technical analysis, and options trading concepts",
+            "description": "Search the proprietary knowledge base for domain-specific trading concepts, strategies, and terminology. Contains detailed information on: LTP calculator, WTB/WTT shifting, support/resistance, pressure analysis, game of percentage, options strategies (ITM/OTM/ATM), scenario building, 75% rule, and more. Use this FIRST for any trading concept or strategy question.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Search query (e.g., 'WTB rules', 'LTP calculator features', 'shifting pressure', 'support resistance basics')"
+                        "description": "Descriptive search query about the concept. Use the full concept name, not abbreviations. Examples: 'weak towards bottom rules and conditions', 'LTP calculator how to use', 'shifting pressure analysis method', 'support and resistance levels identification'"
                     }
                 },
                 "required": ["query"]
