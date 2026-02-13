@@ -4,8 +4,6 @@ uvicorn[standard]==0.32.0
 
 # AI & Agents
 langchain==0.3.0
-langchain-core==0.3.83
-langchain-text-splitters==0.3.8
 langgraph==0.2.45
 langchain-groq==0.2.1
 groq==0.37.1
