@@ -120,6 +120,42 @@ Respond with ONLY the mode name. Nothing else. No JSON. No explanation. Just one
             
             state["extracted_entities"] = entities
             
+            # Check if knowledge base has information about this query
+            try:
+                from ..core.async_data_pool import get_async_data_pool
+                data_pool = get_async_data_pool()
+                
+                if data_pool.has_knowledge_about(query):
+                    available_topics = data_pool.get_available_topics()
+                    
+                    # Check what kind of knowledge exists
+                    query_lower = query.lower()
+                    matched_concepts = [c for c in available_topics["concepts"] if c in query_lower]
+                    matched_symbols = [s for s in available_topics["symbols"] if s.lower() in query_lower]
+                    
+                    if matched_concepts or matched_symbols:
+                        logger.info(f"📚 KB has content on {matched_concepts or matched_symbols} → routing to explainer")
+                        selected_mode = AgentMode.EXPLAINER
+            except ImportError:
+                # Fall back to sync version if async not available
+                try:
+                    from ..core.data_pool import get_data_pool
+                    data_pool = get_data_pool()
+                    
+                    if data_pool.has_knowledge_about(query):
+                        available_topics = data_pool.get_available_topics()
+                        query_lower = query.lower()
+                        matched_concepts = [c for c in available_topics["concepts"] if c in query_lower]
+                        matched_symbols = [s for s in available_topics["symbols"] if s.lower() in query_lower]
+                        
+                        if matched_concepts or matched_symbols:
+                            logger.info(f"📚 KB has content on {matched_concepts or matched_symbols} → routing to explainer")
+                            selected_mode = AgentMode.EXPLAINER
+                except Exception as e:
+                    logger.debug(f"Data pool check skipped: {e}")
+            except Exception as e:
+                logger.debug(f"Data pool check skipped: {e}")
+            
             # Override mode to explainer if it's a financial term query with no stock symbols
             from ..tools.financial_terms import is_financial_term
             if is_financial_term(query) and not entities.get("symbols"):

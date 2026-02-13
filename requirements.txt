@@ -30,6 +30,9 @@ itsdangerous
 pandas==2.2.0
 numpy==1.26.0
 
+# Knowledge Base & Semantic Search
+sentence-transformers==2.2.2
+
 # HTTP & Streaming
 httpx==0.27.0
 sse-starlette==2.1.3

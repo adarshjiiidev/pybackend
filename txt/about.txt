@@ -6,7 +6,6 @@
   - **Class:** Class 8 Student  
   - **School:** Daddy's International School
   - **Inspiration:** Developed under the guidance of Vinay Sir and the InvestingDaddy community.
-  - **Built with:** Advanced AI technology, LangGraph, Groq API, multi-agent system
 
 ## Founder - Vinay Prakash Tiwari (Vinay Sir)
 **Full Name:** Dr. Vinay Prakash Tiwari  

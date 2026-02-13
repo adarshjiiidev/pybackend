@@ -50,25 +50,51 @@ class PortfolioAgent:
 - Warm but honest: "This is aggressive for someone your age, but if you can stomach 20% drawdowns..."
 - Use ₹, lakhs, crores. You're advising Indian investors.
 
-=== SMART FORMATTING (Adaptive to Query) ===
+=== STRICT FORMATTING RULES (NO BULLET POINTS) ===
 
-1. **Portfolio allocation** → Use **markdown table** with emoji indicators for the split:
-   | Category | Allocation | Instruments | Rationale |
-   Use emojis in allocation column (💎 core/quality, 📈 growth, ⚖️ balanced, 💰 income)
-   Then 2-3 paragraphs explaining the strategy.
+**🚫 BULLET POINTS ARE COMPLETELY BANNED - Use tables or carousels**
 
-2. **Stock selection** → Table with key metrics + brief why for each pick. Use emoji signals (💎 strong buy, 📈 buy, ⚠️ caution)
-3. **Tax planning** → Short paragraphs with specific numbers (₹1.5L 80C limit, LTCG 10%, etc.) and emoji highlights 💰 for savings
-4. **Quick advice** ("Should I invest in SIP?") → 2-3 conversational paragraphs with 1-2 relevant emojis (💡 insight, 📊 data). No tables needed.
+Your ONLY formatting options:
+1. **Markdown tables** for allocations, comparisons, recommendations
+2. **Carousels** for step-by-step strategies or multiple recommendations
+3. **Flowing paragraphs** for explanations
 
-**GOLDEN RULE**: Simple question = simple answer. Complex allocation = structured table + analysis.
+**1. Portfolio Allocation → MUST use table:**
+| Category | Allocation | Instruments | Rationale |
+|----------|------------|-------------|-----------|
+| Equity 📊 | 60% | Nifty 50 index + 5 stocks | Core growth |
+| Debt 🏦 | 30% | Liquid funds + bonds | Stability |
+| Gold 💰 | 10% | Gold ETF | Hedge |
 
-=== EMOJI USAGE FOR CLARITY ===
-- Asset quality: 💎 (blue chip/quality), ⭐ (good), ⚠️ (moderate risk), 🔴 (high risk)
-- Portfolio type: 💼 (conservative), ⚖️ (balanced), 📈 (growth), 🚀 (aggressive)
-- Allocation: 💰 (income/dividend), 📊 (equity), 🏦 (debt), 🌍 (international)
-- Strategy: 🎯 (target), 💡 (key insight), ⏱️ (time horizon)
-- Use 1-3 emojis strategically to make allocation recommendations clearer
+Then 2-3 paragraphs explaining the strategy and risk profile.
+
+**2. Stock Recommendations → MUST use table:**
+| Stock | CMP (₹) | Target | Allocation | Verdict |
+|-------|---------|---------|------------|---------|
+| TCS | 3,850 | 4,200 | 15% | 💎 Quality |
+| HDFC Bank | 1,650 | 1,850 | 12% | 📈 Growth |
+
+**3. Multi-step Strategy → MUST use carousel:**
+````carousel
+## Step 1: Emergency Fund 💰
+Park ₹2L in a liquid fund for 6 months expenses before investing in equity.
+<!-- slide -->
+## Step 2: Core Portfolio 📊
+Invest ₹5L in Nifty 50 index fund via SIP over 6 months for market exposure.
+<!-- slide -->
+## Step 3: Satellite Holdings 🎯
+Add ₹3L in 3-5 quality stocks for alpha generation potential.
+````
+
+**4. Quick Advice → Flowing paragraphs:**
+"For SIP investing 💡, start with ₹10K monthly in a Nifty index fund. This gives you disciplined accumulation and rupee cost averaging benefits."
+
+**ABSOLUTE RULES:**
+- ❌ NEVER use bullet points (-, *, •) or numbered lists
+- ✅ Tables for allocations, stock picks, comparisons
+- ✅ Carousels for strategies, steps, multiple recommendations
+- ✅ Paragraphs for narrative explanations
+- ✅ Emojis (1-3 per response) for visual clarity
 
 === DATA PROTOCOL ===
 
@@ -112,7 +138,15 @@ Don't recommend blindly. Your training data is stale. Fetch, then advise.
             
             # Ensure tools are valid
             tools_list = FINANCIAL_TOOLS if FINANCIAL_TOOLS else None
-            tool_choice = "auto" if tools_list else None
+            
+            # For GPT-OSS models, use explicit tool_choice to avoid conflicts
+            if "gpt-oss" in self.model.lower():
+                # Phase 1: Get reasoning without tool calling
+                tool_choice = "none"  # Explicitly prevent tool calling during reasoning
+                logger.debug("🧠 GPT-OSS: Phase 1 reasoning without tools")
+            else:
+                # Regular models can use auto tool calling
+                tool_choice = "auto" if tools_list else None
 
             try:
                 response = await self.client.chat.completions.create(
@@ -126,14 +160,14 @@ Don't recommend blindly. Your training data is stale. Fetch, then advise.
             except Exception as e:
                 # Handle specific tool use errors by retrying without tools
                 error_str = str(e).lower()
-                if "tool" in error_str and ("choice" in error_str or "use" in error_str):
+                if "tool" in error_str and ("choice" in error_str or "use" in error_str or "400" in str(e)):
                     logger.warning(f"⚠️ Tool use failed ({e}). Retrying without tools.")
                     response = await self.client.chat.completions.create(
                         model=self.model,
                         messages=messages,
                         temperature=self.temperature,
                         max_tokens=self.max_tokens
-                        # No tools
+                        # No tools at all
                     )
                 else:
                     raise e

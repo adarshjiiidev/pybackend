@@ -18,6 +18,7 @@ from ..models.db_models import (
     OTP
 )
 from ..models.chat_models import Conversation, Message
+from ..models.knowledge_cache import KnowledgeSearchCache
 
 logger = logging.getLogger(__name__)
 
@@ -80,8 +81,9 @@ class Database:
                     # Chat models
                     Conversation,
                     Message,
-                    # Cache
-                    MarketDataCache
+                    # Cache models
+                    MarketDataCache,
+                    KnowledgeSearchCache  # Permanent KB search cache
                 ]
             )
             
