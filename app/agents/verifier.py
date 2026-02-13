@@ -31,7 +31,8 @@ class VerifierAgent:
         If images are present, use vision model to enhance response with image understanding.
         Ensures:
         - Structured with bold section headings (##)
-        - Clear bullet points for lists
+        - Tables instead of bullet points for structured data
+        - Carousels for sequential content
         - Reasoning process formatted separately
         - Professional, non-technical tone
         - Image analysis if images provided
@@ -70,13 +71,18 @@ class VerifierAgent:
         # Clean response (remove internal reasoning markers, extra whitespace)
         cleaned = clean_response(raw_response)
         
+        # Check for bullet points (will be handled by formatter)
+        self._check_formatting(cleaned)
+        
+        # Enforce formatting rules: convert bullet points to tables/carousels if found
+        cleaned = await self._enforce_formatting(cleaned)
         
         # Get internal reasoning if available
         internal_reasoning = state.get("internal_reasoning")
         reasoning_text = ""
         
         if internal_reasoning and internal_reasoning.strip():
-            # Format reasoning as numbered steps
+            # Keep reasoning as numbered steps (this is acceptable for meta info)
             reasoning_lines = internal_reasoning.strip().split('\n')
             formatted_reasoning = []
             step_num = 1
@@ -149,6 +155,18 @@ class VerifierAgent:
         
         return state
     
+    def _check_formatting(self, response: str):
+        """Log warning if bullet points detected."""
+        has_bullets = bool(re.search(r'^\s*[-*•]\s+', response, re.MULTILINE))
+        has_numbered = bool(re.search(r'^\s*\d+[\.)]\s+', response, re.MULTILINE))
+        
+        if has_bullets or has_numbered:
+            logger.warning("⚠️ Detected bullet points/numbered lists - formatter will convert to tables/carousels")
+    
+    async def _enforce_formatting(self, response: str) -> str:
+        """Placeholder for format enforcement - actual conversion happens in _format_with_structure."""
+        return response
+    
     async def _analyze_images(self, state: AgentState) -> str:
         """Analyze images using vision model."""
         images = state.get("images", [])
@@ -197,15 +215,35 @@ class VerifierAgent:
         
         formatting_prompt = f"""Improve the readability of this content. Your job is ONLY to improve structure, not change content.
 
-RULES:
+CRITICAL FORMATTING RULES:
+- 🚫 NEVER use bullet points (-, *, •) or numbered lists (1., 2., 3.)
+- ✅ Use markdown tables for comparisons, features, lists of items
+- ✅ Use carousel format for step-by-step or sequential content
+- ✅ Use flowing paragraphs for narratives
+
+STRUCTURE RULES:
 - If the content is short (under 200 words), DON'T add headings. Just clean up spacing.
-- If the content has data comparisons, add a markdown table.
+- If the content has data comparisons or features → MUST use markdown table
+- If content lists steps or multiple items → MUST use carousel format
 - If the content is long (400+ words), add ## section headings to break it up.
 - Use **bold** for key terms and numbers.
-- DON'T add bullet points unless there are 3+ items that are genuinely a list.
 - DON'T change facts, numbers, or meaning.
 - DON'T add your own commentary.
 - Keep the original conversational tone. Don't make it corporate.
+
+CAROUSEL FORMAT:
+````carousel
+## Item 1: Title
+Description text
+<!-- slide -->
+## Item 2: Title  
+Description text
+````
+
+TABLE FORMAT:
+| Column 1 | Column 2 | Column 3 |
+|----------|----------|----------|
+| Data | Data | Data |
 
 User query: {query}
 
@@ -218,7 +256,7 @@ Output ONLY the formatted content."""
             format_response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "You improve text structure for readability. Use ## for section headings, ** for bold, - for bullets. Output only the formatted text—never instructions or meta-commentary."},
+                    {"role": "system", "content": "You improve text structure for readability. 🚫 NEVER use bullet points - use tables or carousels instead. Use ## for section headings, ** for bold. Output only the formatted text—never instructions or meta-commentary."},
                     {"role": "user", "content": formatting_prompt}
                 ],
                 temperature=0.2,
