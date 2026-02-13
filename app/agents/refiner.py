@@ -9,6 +9,7 @@ import json
 from datetime import datetime
 
 from ..config import settings, ModelType
+from ..config.key_rotator import get_groq_client
 from ..models.research_state import ResearchState
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ class RefinerAgent:
     """
     
     def __init__(self):
-        self.client = AsyncGroq(api_key=settings.groq_api_key)
+        self.client = get_groq_client()
         self.model = settings.get_model_for_task(ModelType.REASONING_DEEP)
         self.temperature = 0.6
         self.max_tokens = 4096

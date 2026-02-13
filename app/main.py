@@ -32,7 +32,18 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Lifecycle manager for startup and shutdown events."""
     # Startup
-    logger.info("Starting Daaddys AI backend...")
+    logger.info("Starting Daddy's AI backend...")
+    
+    # Initialize API key rotation
+    try:
+        from .config.key_rotator import initialize_rotator
+        api_keys = settings.get_all_api_keys()
+        initialize_rotator(api_keys)
+        logger.info(f"✅ API key rotation initialized with {len(api_keys)} keys")
+    except Exception as e:
+        logger.error(f"Failed to initialize key rotator: {e}")
+        logger.warning("⚠️ Continuing with single key mode")
+    
     try:
         await init_db()
         logger.info("Database initialized successfully")
@@ -43,7 +54,7 @@ async def lifespan(app: FastAPI):
     yield
     
     # Shutdown
-    logger.info("Shutting down Daaddys AI backend...")
+    logger.info("Shutting down Daddy's AI backend...")
     await close_db()
 
 

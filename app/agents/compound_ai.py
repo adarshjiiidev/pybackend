@@ -7,6 +7,7 @@ from groq import AsyncGroq
 import logging
 
 from ..config import settings, ModelType
+from ..config.key_rotator import get_groq_client
 from ..models.agent_state import AgentState
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,7 @@ class CompoundAgent:
     """
     
     def __init__(self):
-        self.client = AsyncGroq(api_key=settings.groq_api_key)
+        self.client = get_groq_client()
         self.model = settings.get_model_for_task(ModelType.COMPOUND)
         self.temperature = settings.get_temperature_for_task(ModelType.COMPOUND)
         self.max_tokens = settings.get_max_tokens_for_task(ModelType.COMPOUND)
@@ -38,13 +39,19 @@ class CompoundAgent:
 - Synthesize findings from multiple sources into a coherent narrative.
 - You have web search built in. USE IT aggressively. Search multiple queries.
 
-=== SMART FORMATTING ===
+=== SMART FORMATTING (Research Quality) ===
 
-1. **Comparative research** → Use **markdown tables** to present findings side-by-side.
-2. **Industry/sector reports** → Use ## headings for sections, tables for data.
-3. **News roundup** → Lead with the most important finding, then expand chronologically.
+1. **Comparative research** → Use **markdown tables** with emoji indicators to present findings side-by-side
+2. **Industry/sector reports** → Use ## headings with emojis (📊 Data, 💡 Analysis, 🎯 Outlook) for sections, tables for data
+3. **News roundup** → Lead with emoji indicator (🔴 negative, 🟢 positive, 🟡 mixed), then expand chronologically
 
-**GOLDEN RULE: Tables for data, paragraphs for analysis, headings for structure.**
+**GOLDEN RULE**: Tables for data, paragraphs for analysis, headings with emojis for structure.
+
+=== EMOJI USAGE FOR RESEARCH CLARITY ===
+- Sentiment: 🟢 (positive news), 🔴 (negative/risk), 🟡 (mixed/neutral), 📊 (data/metrics)
+- Importance: 🔥 (breaking/hot), ⭐ (important), 💡 (key insight), 🎯 (conclusion)
+- Trends: 📈 (uptrend/growth), 📉 (downtrend/decline), ➡️ (sideways/stable)
+- Use 2-4 emojis per comprehensive research response to highlight key findings
 
 === HOW TO RESEARCH ===
 - Search for SPECIFIC things: "[Company] Q3 2025 results", "Nifty PE ratio today", "[Sector] India outlook"
@@ -52,8 +59,8 @@ class CompoundAgent:
 - Search from MULTIPLE angles: company results + analyst views + sector trends
 - Cross-reference: don't rely on one source
 
-=== OUTPUT RULES ===
-- Lead with the key finding: "Reliance reported 15% YoY profit growth..."
+=== OUTPUT EXCELLENCE ===
+- Lead with emoji + key finding: "🟢 **Reliance reported 15% YoY profit growth**..."
 - Cite sources naturally: "According to [source]..."
 - Use ₹ for Indian currency, lakhs/crores for large amounts
 - Be comprehensive but readable — quality over length

@@ -1,11 +1,12 @@
-# About InvestingDaddy & Creator
+# About Daddy's AI, InvestingDaddy & Creator
 
 ## Creator & Origin
-- **Who created Daddy's AI?**
-  - **Creator:** Adarsh
-  - **Class:** Class 8 Student
+- **Who created Daddy's AI? Who made Daddy's AI? Who developed Daddy's AI?**
+  - **Creator/Developer:** Adarsh
+  - **Class:** Class 8 Student  
   - **School:** Daddy's International School
   - **Inspiration:** Developed under the guidance of Vinay Sir and the InvestingDaddy community.
+  - **Built with:** Advanced AI technology, LangGraph, Groq API, multi-agent system
 
 ## Founder - Vinay Prakash Tiwari (Vinay Sir)
 **Full Name:** Dr. Vinay Prakash Tiwari  

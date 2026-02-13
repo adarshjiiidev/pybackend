@@ -8,6 +8,7 @@ from groq import AsyncGroq
 import logging
 
 from ..config import settings, ModelType
+from ..config.key_rotator import get_groq_client
 from ..models.agent_state import AgentState
 from ..tools import get_crypto_data, format_for_llm
 from ..database import MarketDataCacheManager
@@ -19,7 +20,7 @@ class CryptoAgent:
     """Provides cryptocurrency market analysis and insights using reasoning model."""
     
     def __init__(self):
-        self.client = AsyncGroq(api_key=settings.groq_api_key)
+        self.client = get_groq_client()
         # Use deep reasoning model for crypto market analysis
         self.model = settings.get_model_for_task(ModelType.REASONING_DEEP)
         self.temperature = settings.get_temperature_for_task(ModelType.REASONING_DEEP)

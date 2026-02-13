@@ -19,11 +19,41 @@ logger = logging.getLogger(__name__)
 cache = MarketDataCacheManager()
 
 
+# Simple in-memory cache for web search results (prevents redundant searches)
+_web_search_cache: Dict[str, tuple[str, datetime]] = {}
+CACHE_TTL_SECONDS = 300  # 5 minutes
+
+
+def _get_cache_key(query: str) -> str:
+    """Generate cache key from query."""
+    return query.lower().strip()
+
+
+def _is_cache_valid(cached_time: datetime) -> bool:
+    """Check if cached result is still valid."""
+    return (datetime.now() - cached_time).total_seconds() < CACHE_TTL_SECONDS
+
+
 # Groq Compound AI web search
 async def _search_web_groq(query: str) -> str:
-    """Search web using Groq Compound AI."""
+    """
+    Search web using Groq Compound AI with caching and truncation.
+    - Caches results for 5 minutes to avoid redundant searches
+    - Truncates results to prevent 413 Payload Too Large errors
+    - Uses key rotation for better rate limit distribution
+    """
+    # Check cache first
+    cache_key = _get_cache_key(query)
+    if cache_key in _web_search_cache:
+        cached_result, cached_time = _web_search_cache[cache_key]
+        if _is_cache_valid(cached_time):
+            logger.info(f"✅ Using cached web search result for: {query[:50]}...")
+            return cached_result
+    
     try:
-        client = AsyncGroq(api_key=settings.groq_api_key)
+        # Use key rotation for web search
+        from ..config.key_rotator import get_groq_client
+        client = get_groq_client()
         model = settings.get_model_for_task(ModelType.COMPOUND)
         
         response = await client.chat.completions.create(
@@ -31,18 +61,29 @@ async def _search_web_groq(query: str) -> str:
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a web search assistant. Search the web and provide accurate, current information with sources. Be concise but comprehensive."
+                    "content": "Search and summarize concisely. Provide key facts with sources. Keep response under 800 words to avoid payload limits."
                 },
                 {
                     "role": "user",
-                    "content": f"Search the web and provide information about: {query}"
+                    "content": f"Search: {query}"
                 }
             ],
             temperature=0.3,
-            max_tokens=1024
+            max_tokens=1024  # Limit to prevent 413 errors
         )
         
-        return response.choices[0].message.content
+        result = response.choices[0].message.content
+        
+        # Truncate if still too long (safety check)
+        if len(result) > 3000:
+            result = result[:3000] + "... [truncated for size]"
+            logger.warning(f"⚠️ Truncated web search result from {len(result)} to 3000 chars")
+        
+        # Cache the result
+        _web_search_cache[cache_key] = (result, datetime.now())
+        logger.info(f"🔍 Web search completed and cached for: {query[:50]}...")
+        
+        return result
     except Exception as e:
         logger.error(f"Groq web search error: {e}")
         return f"Search error: {str(e)}"

@@ -9,6 +9,7 @@ from typing import Dict, Any
 from datetime import datetime
 
 from ..config import settings, ModelType
+from ..config.key_rotator import get_groq_client
 from ..models.research_state import ResearchState
 from ..tools import execute_tool
 from ..rag import get_kb_rag
@@ -23,7 +24,7 @@ class ResearcherAgent:
     """
     
     def __init__(self):
-        self.client = AsyncGroq(api_key=settings.groq_api_key)
+        self.client = get_groq_client()
         self.model = settings.get_model_for_task(ModelType.ANALYSIS)
         self.temperature = 0.5
         self.max_tokens = 3000

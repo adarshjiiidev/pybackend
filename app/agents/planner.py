@@ -11,6 +11,7 @@ from typing import List
 
 from ..config import settings, ModelType
 from ..config.research_config import MAX_RESEARCH_ITERATIONS
+from ..config.key_rotator import get_groq_client
 from ..models.research_state import ResearchState, ResearchStep
 
 logger = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ class PlannerAgent:
     """
     
     def __init__(self):
-        self.client = AsyncGroq(api_key=settings.groq_api_key)
+        self.client = get_groq_client()
         self.model = settings.get_model_for_task(ModelType.REASONING_DEEP)
         self.temperature = 0.4  # Low for structured planning
         self.max_tokens = 2048

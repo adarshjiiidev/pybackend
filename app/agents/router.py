@@ -12,6 +12,7 @@ import re
 import asyncio
 
 from ..config import settings, ModelType
+from ..config.key_rotator import get_groq_client
 from ..models.agent_state import AgentState, AgentMode
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ class RouterAgent:
     """Routes user queries to appropriate specialized agents using fast model."""
     
     def __init__(self):
-        self.client = AsyncGroq(api_key=settings.groq_api_key)
+        self.client = get_groq_client()
         self.model = settings.get_model_for_task(ModelType.ROUTER)
         self.temperature = settings.get_temperature_for_task(ModelType.ROUTER)
         self.max_tokens = settings.get_max_tokens_for_task(ModelType.ROUTER)

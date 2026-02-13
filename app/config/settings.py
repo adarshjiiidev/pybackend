@@ -23,8 +23,12 @@ class ModelType(str, Enum):
 class Settings(BaseSettings):
     """Application configuration settings optimized for Groq API."""
     
-    # LLM Configuration - Groq Multi-Model System
+    # LLM Configuration - Groq Multi-Model System with Key Rotation
     groq_api_key: str
+    groq_api_key_2: Optional[str] = None
+    groq_api_key_3: Optional[str] = None
+    groq_api_key_4: Optional[str] = None
+    groq_api_key_5: Optional[str] = None
     
     # Model Selection - Using Groq's best models
     model_reasoning_deep: str = "openai/gpt-oss-120b"  # Deep reasoning with high effort
@@ -171,6 +175,19 @@ class Settings(BaseSettings):
         elif task_type == ModelType.REASONING_FAST:
             return self.reasoning_effort_fast
         return None
+    
+    def get_all_api_keys(self) -> list[str]:
+        """Get all configured Groq API keys for rotation."""
+        keys = [self.groq_api_key]
+        if self.groq_api_key_2:
+            keys.append(self.groq_api_key_2)
+        if self.groq_api_key_3:
+            keys.append(self.groq_api_key_3)
+        if self.groq_api_key_4:
+            keys.append(self.groq_api_key_4)
+        if self.groq_api_key_5:
+            keys.append(self.groq_api_key_5)
+        return keys
 
 
 # Global settings instance
