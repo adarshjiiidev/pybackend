@@ -55,6 +55,15 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("Shutting down Daddy's AI backend...")
+
+    # Cleanup scraper connections
+    try:
+        from .tools.nse_scraper import get_nse_scraper
+        scraper = get_nse_scraper()
+        await scraper.close()
+    except Exception as e:
+        logger.error(f"Error closing NSE scraper: {e}")
+
     await close_db()
 
 
