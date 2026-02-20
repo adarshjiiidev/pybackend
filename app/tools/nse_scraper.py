@@ -8,6 +8,7 @@ import logging
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 import asyncio
+from .nse_cache import get_nse_cache
 
 logger = logging.getLogger(__name__)
 
@@ -22,35 +23,36 @@ class NSEFastScraper:
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "application/json, text/plain, */*",
         "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
+        "Accept-Encoding": "gzip, deflate",  # Removed 'br' as brotli library is not installed
         "Referer": "https://www.nseindia.com/",
         "X-Requested-With": "XMLHttpRequest"
     }
     
     def __init__(self):
-        self.session_cookies = None
+        self.client: Optional[httpx.AsyncClient] = None
         self.last_cookie_refresh = None
     
     async def _get_session(self) -> httpx.AsyncClient:
-        """Get or refresh NSE session cookies."""
-        # Refresh cookies every 5 minutes
-        if self.session_cookies is None or (
+        """Get or refresh NSE session client."""
+        # Initialize or refresh client every 5 minutes to keep session alive
+        if self.client is None or self.client.is_closed or (
             self.last_cookie_refresh and 
             datetime.now() - self.last_cookie_refresh > timedelta(minutes=5)
         ):
-            async with httpx.AsyncClient(headers=self.HEADERS, timeout=10.0) as client:
-                # Visit homepage to get cookies
-                await client.get(self.BASE_URL)
-                self.session_cookies = client.cookies
-                self.last_cookie_refresh = datetime.now()
-                logger.info("NSE session cookies refreshed")
+            if self.client and not self.client.is_closed:
+                await self.client.aclose()
+
+            self.client = httpx.AsyncClient(
+                headers=self.HEADERS,
+                timeout=10.0,
+                follow_redirects=True
+            )
+            # Visit homepage to get cookies
+            await self.client.get(self.BASE_URL)
+            self.last_cookie_refresh = datetime.now()
+            logger.info("NSE session and connection pool initialized")
         
-        return httpx.AsyncClient(
-            headers=self.HEADERS,
-            cookies=self.session_cookies,
-            timeout=10.0,
-            follow_redirects=True
-        )
+        return self.client
     
     async def get_stock_quote(self, symbol: str) -> Dict[str, Any]:
         """
@@ -60,6 +62,12 @@ class NSEFastScraper:
         Speed: ~0.5-1.5 seconds
         """
         try:
+            # Check cache first
+            cache = get_nse_cache()
+            cached_data = cache.get("quote", symbol)
+            if cached_data:
+                return cached_data
+
             client = await self._get_session()
             
             url = f"{self.BASE_URL}/api/quote-equity?symbol={symbol.upper()}"
@@ -70,7 +78,7 @@ class NSEFastScraper:
             # Extract relevant fields
             price_info = data.get("priceInfo", {})
             
-            return {
+            result = {
                 "symbol": symbol,
                 "ltp": price_info.get("lastPrice"),
                 "change": price_info.get("change"),
@@ -83,6 +91,10 @@ class NSEFastScraper:
                 "timestamp": datetime.now().isoformat(),
                 "source": "nse_api"
             }
+
+            # Store in cache
+            cache.set("quote", result, symbol)
+            return result
         except Exception as e:
             logger.error(f"NSE quote fetch error for {symbol}: {e}")
             return {"error": str(e), "symbol": symbol}
@@ -95,6 +107,12 @@ class NSEFastScraper:
         Speed: ~1-2 seconds
         """
         try:
+            # Check cache first
+            cache = get_nse_cache()
+            cached_data = cache.get("fii_dii")
+            if cached_data:
+                return cached_data
+
             client = await self._get_session()
             
             # NSE FII/DII API endpoint
@@ -126,6 +144,8 @@ class NSEFastScraper:
                     result["dii"]["sell"] = float(entry.get("sellValue", 0))
                     result["dii"]["net"] = float(entry.get("netValue", 0))
             
+            # Store in cache
+            cache.set("fii_dii", result)
             return result
         except Exception as e:
             logger.error(f"NSE FII/DII fetch error: {e}")
@@ -139,6 +159,12 @@ class NSEFastScraper:
         Speed: ~1-2 seconds
         """
         try:
+            # Check cache first
+            cache = get_nse_cache()
+            cached_data = cache.get("option_chain", symbol)
+            if cached_data:
+                return cached_data
+
             client = await self._get_session()
             
             # Determine if index or equity
@@ -153,7 +179,7 @@ class NSEFastScraper:
             
             records = data.get("records", {})
             
-            return {
+            result = {
                 "symbol": symbol,
                 "underlyingValue": records.get("underlyingValue"),
                 "timestamp": records.get("timestamp"),
@@ -163,6 +189,10 @@ class NSEFastScraper:
                 "filteredData": records.get("filteredData", [])[:20],
                 "source": "nse_api"
             }
+
+            # Store in cache
+            cache.set("option_chain", result, symbol)
+            return result
         except Exception as e:
             logger.error(f"NSE option chain error for {symbol}: {e}")
             return {"error": str(e), "symbol": symbol}
@@ -170,6 +200,12 @@ class NSEFastScraper:
     async def get_market_status(self) -> Dict[str, Any]:
         """Get current market status and indices."""
         try:
+            # Check cache first
+            cache = get_nse_cache()
+            cached_data = cache.get("market_status")
+            if cached_data:
+                return cached_data
+
             client = await self._get_session()
             
             url = f"{self.BASE_URL}/api/marketStatus"
@@ -177,14 +213,24 @@ class NSEFastScraper:
             response.raise_for_status()
             data = response.json()
             
-            return {
+            result = {
                 "marketState": data.get("marketState", []),
                 "timestamp": datetime.now().isoformat(),
                 "source": "nse_api"
             }
+
+            # Store in cache
+            cache.set("market_status", result)
+            return result
         except Exception as e:
             logger.error(f"NSE market status error: {e}")
             return {"error": str(e)}
+
+    async def close(self):
+        """Close the persistent httpx client."""
+        if self.client and not self.client.is_closed:
+            await self.client.aclose()
+            logger.info("NSE scraper connection pool closed")
 
 
 # Global instance
