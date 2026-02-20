@@ -121,23 +121,31 @@ NEVER say "The price might be..." — fetch it.
                 logger.info(f"🛠️ AI autonomously using {len(tool_calls)} tools: {[tc.function.name for tc in tool_calls]}")
                 
                 from ..tools.tool_executor import execute_tool
-                tool_results = []
                 
+                # Execute all requested tools in parallel for maximum speed
+                tasks = []
                 for tool_call in tool_calls:
                     tool_name = tool_call.function.name
                     tool_args = json.loads(tool_call.function.arguments)
                     logger.info(f"Executing: {tool_name}({tool_args})")
-                    
-                    result = await execute_tool(tool_name, tool_args)
+                    tasks.append(execute_tool(tool_name, tool_args))
+
+                # Add assistant message (containing tool calls) to history
+                messages.append(message)
+
+                # Wait for all tools to complete concurrently
+                results = await asyncio.gather(*tasks)
+
+                tool_results = []
+                for tool_call, result in zip(tool_calls, results):
                     tool_results.append({
                         "tool_call_id": tool_call.id,
                         "role": "tool",
-                        "name": tool_name,
+                        "name": tool_call.function.name,
                         "content": str(result)
                     })
                 
-                # Add assistant message and tool results
-                messages.append(message)
+                # Add tool results to history
                 messages.extend(tool_results)
                 
                 # Get final analysis

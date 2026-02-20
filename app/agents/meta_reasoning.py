@@ -8,6 +8,7 @@ from groq import AsyncGroq
 from typing import Optional, Any
 import logging
 import json
+import asyncio
 
 from ..config import settings, ModelType
 from ..config.key_rotator import get_groq_client
@@ -248,21 +249,25 @@ A lower PE might suggest the stock is cheaper, but it could also signal the mark
                 
                 # Check if model wants to call tools
                 if hasattr(message, 'tool_calls') and message.tool_calls:
-                    # Execute each tool call
+                    # Add assistant's tool calls to conversation (as a single message)
+                    messages.append(message)
+
+                    # Execute all tool calls in parallel for this round for maximum efficiency
+                    tasks = []
                     for tool_call in message.tool_calls:
                         tool_name = tool_call.function.name
                         arguments = json.loads(tool_call.function.arguments)
-                        
                         logger.info(f"[Round {iteration}] Executing tool: {tool_name} with args: {arguments}")
-                        result = await execute_tool(tool_name, arguments)
+                        tasks.append(execute_tool(tool_name, arguments))
+
+                    # Wait for all tools in this round to complete concurrently
+                    results = await asyncio.gather(*tasks)
+
+                    # Add all tool results to conversation
+                    for tool_call, result in zip(message.tool_calls, results):
+                        tool_name = tool_call.function.name
                         tool_results[tool_name] = result
                         
-                        # Add assistant's tool call to conversation
-                        messages.append({
-                            "role": "assistant",
-                            "tool_calls": [tool_call.dict()]
-                        })
-                        # Add tool result to conversation
                         messages.append({
                             "role": "tool",
                             "tool_call_id": tool_call.id,
