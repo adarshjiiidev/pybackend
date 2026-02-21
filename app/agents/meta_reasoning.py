@@ -7,6 +7,7 @@ Supports multi-step tool calling for comprehensive deep research.
 from groq import AsyncGroq
 from typing import Optional, Any
 import logging
+import asyncio
 import json
 
 from ..config import settings, ModelType
@@ -248,27 +249,29 @@ A lower PE might suggest the stock is cheaper, but it could also signal the mark
                 
                 # Check if model wants to call tools
                 if hasattr(message, 'tool_calls') and message.tool_calls:
-                    # Execute each tool call
-                    for tool_call in message.tool_calls:
-                        tool_name = tool_call.function.name
-                        arguments = json.loads(tool_call.function.arguments)
-                        
-                        logger.info(f"[Round {iteration}] Executing tool: {tool_name} with args: {arguments}")
-                        result = await execute_tool(tool_name, arguments)
-                        tool_results[tool_name] = result
-                        
-                        # Add assistant's tool call to conversation
-                        messages.append({
-                            "role": "assistant",
-                            "tool_calls": [tool_call.dict()]
-                        })
-                        # Add tool result to conversation
-                        messages.append({
+                    # Add assistant's tool calls to conversation once
+                    messages.append(message)
+
+                    # Execute all tool calls in parallel for better performance
+                    async def run_and_format_tool(tc):
+                        t_name = tc.function.name
+                        t_args = json.loads(tc.function.arguments)
+                        logger.info(f"[Round {iteration}] Executing tool: {t_name} with args: {t_args}")
+                        res = await execute_tool(t_name, t_args)
+                        return t_name, res, {
                             "role": "tool",
-                            "tool_call_id": tool_call.id,
-                            "name": tool_name,
-                            "content": json.dumps(result)
-                        })
+                            "tool_call_id": tc.id,
+                            "name": t_name,
+                            "content": json.dumps(res)
+                        }
+
+                    # Execute all tools in parallel
+                    parallel_results = await asyncio.gather(*[run_and_format_tool(tc) for tc in message.tool_calls])
+
+                    # Process and append results
+                    for t_name, res, tool_msg in parallel_results:
+                        tool_results[t_name] = res
+                        messages.append(tool_msg)
                     
                     # Continue loop - agent may want to call more tools
                     logger.info(f"Tool execution complete. Agent may request more tools in next round.")
