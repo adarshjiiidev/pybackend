@@ -32,7 +32,10 @@ class GroqKeyRotator:
         self.lock = threading.Lock()
         self.request_counts = {key: 0 for key in api_keys}
         
-        logger.info(f"🔑 Initialized key rotator with {len(api_keys)} API keys")
+        # Performance: Pre-initialize and reuse clients for connection pooling
+        self.clients = {key: AsyncGroq(api_key=key) for key in api_keys}
+
+        logger.info(f"🔑 Initialized key rotator with {len(api_keys)} API keys and persistent clients")
     
     def get_next_key(self) -> str:
         """
@@ -56,13 +59,27 @@ class GroqKeyRotator:
     
     def get_client(self) -> AsyncGroq:
         """
-        Get a new Groq client with the next rotated API key.
+        Get a Groq client with the next rotated API key.
+        Reuses persistent clients to benefit from connection pooling.
         
         Returns:
-            AsyncGroq: Groq client configured with next key
+            AsyncGroq: Cached Groq client configured with next key
         """
         api_key = self.get_next_key()
-        return AsyncGroq(api_key=api_key)
+        return self.clients[api_key]
+
+    async def close_all(self):
+        """
+        Close all persistent Groq clients.
+        Should be called during application shutdown.
+        """
+        logger.info(f"🔌 Closing {len(self.clients)} persistent Groq clients...")
+        for i, (key, client) in enumerate(self.clients.items()):
+            try:
+                # Groq SDK uses .close() as an async method
+                await client.close()
+            except Exception as e:
+                logger.error(f"Error closing Groq client #{i}: {e}")
     
     def get_stats(self) -> dict:
         """

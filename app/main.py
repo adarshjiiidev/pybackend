@@ -9,7 +9,6 @@ from starlette.middleware.sessions import SessionMiddleware
 from contextlib import asynccontextmanager
 import logging
 import uuid
-from datetime import datetime
 
 from .config import settings, init_db, close_db
 from .models import ChatRequest, SessionResponse, ConversationHistoryResponse
@@ -55,6 +54,14 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("Shutting down Daddy's AI backend...")
+
+    # Cleanup Groq clients (connection pooling)
+    try:
+        from .config.key_rotator import get_rotator
+        rotator = get_rotator()
+        await rotator.close_all()
+    except Exception as e:
+        logger.error(f"Error closing Groq rotator: {e}")
 
     # Cleanup scraper connections
     try:
