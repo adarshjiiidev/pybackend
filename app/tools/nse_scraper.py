@@ -5,9 +5,9 @@ Fast NSE data scraper using direct HTTP API calls.
 
 import httpx
 import logging
+import asyncio
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
-import asyncio
 from .nse_cache import get_nse_cache
 
 logger = logging.getLogger(__name__)
@@ -31,28 +31,30 @@ class NSEFastScraper:
     def __init__(self):
         self.client: Optional[httpx.AsyncClient] = None
         self.last_cookie_refresh = None
+        self.lock = asyncio.Lock()
     
     async def _get_session(self) -> httpx.AsyncClient:
         """Get or refresh NSE session client."""
-        # Initialize or refresh client every 5 minutes to keep session alive
-        if self.client is None or self.client.is_closed or (
-            self.last_cookie_refresh and 
-            datetime.now() - self.last_cookie_refresh > timedelta(minutes=5)
-        ):
-            if self.client and not self.client.is_closed:
-                await self.client.aclose()
+        async with self.lock:
+            # Initialize or refresh client every 5 minutes to keep session alive
+            if self.client is None or self.client.is_closed or (
+                self.last_cookie_refresh and
+                datetime.now() - self.last_cookie_refresh > timedelta(minutes=5)
+            ):
+                if self.client and not self.client.is_closed:
+                    await self.client.aclose()
 
-            self.client = httpx.AsyncClient(
-                headers=self.HEADERS,
-                timeout=10.0,
-                follow_redirects=True
-            )
-            # Visit homepage to get cookies
-            await self.client.get(self.BASE_URL)
-            self.last_cookie_refresh = datetime.now()
-            logger.info("NSE session and connection pool initialized")
-        
-        return self.client
+                self.client = httpx.AsyncClient(
+                    headers=self.HEADERS,
+                    timeout=10.0,
+                    follow_redirects=True
+                )
+                # Visit homepage to get cookies
+                await self.client.get(self.BASE_URL)
+                self.last_cookie_refresh = datetime.now()
+                logger.info("NSE session and connection pool initialized")
+
+            return self.client
     
     async def get_stock_quote(self, symbol: str) -> Dict[str, Any]:
         """

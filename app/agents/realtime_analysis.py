@@ -5,6 +5,7 @@ AI proactively fetches current prices, technical indicators, and market news.
 
 from groq import AsyncGroq
 import logging
+import asyncio
 import json
 from typing import Dict, Any, List
 from datetime import datetime
@@ -121,20 +122,21 @@ NEVER say "The price might be..." — fetch it.
                 logger.info(f"🛠️ AI autonomously using {len(tool_calls)} tools: {[tc.function.name for tc in tool_calls]}")
                 
                 from ..tools.tool_executor import execute_tool
-                tool_results = []
                 
-                for tool_call in tool_calls:
-                    tool_name = tool_call.function.name
-                    tool_args = json.loads(tool_call.function.arguments)
-                    logger.info(f"Executing: {tool_name}({tool_args})")
-                    
-                    result = await execute_tool(tool_name, tool_args)
-                    tool_results.append({
-                        "tool_call_id": tool_call.id,
+                async def run_tool(tc):
+                    name = tc.function.name
+                    args = json.loads(tc.function.arguments)
+                    logger.info(f"Executing: {name}({args})")
+                    res = await execute_tool(name, args)
+                    return {
+                        "tool_call_id": tc.id,
                         "role": "tool",
-                        "name": tool_name,
-                        "content": str(result)
-                    })
+                        "name": name,
+                        "content": str(res)
+                    }
+
+                # Execute all tools in parallel for maximum performance
+                tool_results = await asyncio.gather(*[run_tool(tc) for tc in tool_calls])
                 
                 # Add assistant message and tool results
                 messages.append(message)
