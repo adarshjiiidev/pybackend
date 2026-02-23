@@ -56,6 +56,19 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("Shutting down Daddy's AI backend...")
 
+    # Cleanup Groq clients
+    try:
+        from .config.key_rotator import get_rotator, close_fallback_client
+        try:
+            rotator = get_rotator()
+            await rotator.aclose_all()
+        except RuntimeError:
+            # Rotator might not have been initialized
+            pass
+        await close_fallback_client()
+    except Exception as e:
+        logger.error(f"Error closing Groq clients: {e}")
+
     # Cleanup scraper connections
     try:
         from .tools.nse_scraper import get_nse_scraper

@@ -5,7 +5,8 @@ Intelligently rotates through multiple API keys to distribute load and avoid rat
 
 import threading
 import logging
-from typing import Optional
+import asyncio
+from typing import Optional, Dict
 from groq import AsyncGroq
 
 logger = logging.getLogger(__name__)
@@ -15,6 +16,7 @@ class GroqKeyRotator:
     """
     Thread-safe round-robin API key rotator.
     Cycles through available keys to distribute requests evenly.
+    Caches AsyncGroq instances to enable connection pooling across requests.
     """
     
     def __init__(self, api_keys: list[str]):
@@ -32,6 +34,9 @@ class GroqKeyRotator:
         self.lock = threading.Lock()
         self.request_counts = {key: 0 for key in api_keys}
         
+        # Performance Optimization: Cache clients to reuse httpx connection pools
+        self._clients: Dict[str, AsyncGroq] = {}
+
         logger.info(f"🔑 Initialized key rotator with {len(api_keys)} API keys")
     
     def get_next_key(self) -> str:
@@ -56,14 +61,35 @@ class GroqKeyRotator:
     
     def get_client(self) -> AsyncGroq:
         """
-        Get a new Groq client with the next rotated API key.
+        Get a Groq client with the next rotated API key.
+        Reuses cached clients to benefit from connection pooling.
         
         Returns:
             AsyncGroq: Groq client configured with next key
         """
         api_key = self.get_next_key()
-        return AsyncGroq(api_key=api_key)
+
+        with self.lock:
+            if api_key not in self._clients:
+                logger.debug(f"Creating new AsyncGroq client for key index {self.api_keys.index(api_key)}")
+                self._clients[api_key] = AsyncGroq(api_key=api_key)
+            return self._clients[api_key]
     
+    async def aclose_all(self):
+        """
+        Asynchronously close all cached Groq clients.
+        Should be called during application shutdown.
+        """
+        with self.lock:
+            clients_to_close = list(self._clients.values())
+            self._clients.clear()
+
+        if clients_to_close:
+            logger.info(f"Closing {len(clients_to_close)} cached Groq clients...")
+            # Close all clients in parallel
+            await asyncio.gather(*[client.close() for client in clients_to_close], return_exceptions=True)
+            logger.info("✅ All cached Groq clients closed")
+
     def get_stats(self) -> dict:
         """
         Get rotation statistics.
@@ -89,6 +115,9 @@ class GroqKeyRotator:
 
 # Global rotator instance (will be initialized in main.py)
 _global_rotator: Optional[GroqKeyRotator] = None
+# Cache for fallback client when rotator is not initialized
+_fallback_client: Optional[AsyncGroq] = None
+_fallback_lock = threading.Lock()
 
 
 def initialize_rotator(api_keys: list[str]):
@@ -126,18 +155,22 @@ def get_groq_client() -> AsyncGroq:
     """
     Convenience function to get a Groq client with rotated key.
     Falls back to primary API key if rotator not yet initialized.
+    Reuses client instances for performance.
     
     Returns:
         AsyncGroq: Groq client with next available key
     """
-    if _global_rotator is None:
-        # Fallback: rotator not initialized yet (happens during module imports)
-        # Use primary key from settings
-        from .settings import settings
-        logger.debug("⚠️ Rotator not initialized yet, using primary API key")
-        return AsyncGroq(api_key=settings.groq_api_key)
+    if _global_rotator is not None:
+        return _global_rotator.get_client()
     
-    return _global_rotator.get_client()
+    # Fallback: rotator not initialized yet (happens during module imports)
+    global _fallback_client
+    with _fallback_lock:
+        if _fallback_client is None:
+            from .settings import settings
+            logger.debug("⚠️ Rotator not initialized yet, creating/reusing fallback primary API key client")
+            _fallback_client = AsyncGroq(api_key=settings.groq_api_key)
+        return _fallback_client
 
 
 def get_next_api_key() -> str:
@@ -154,3 +187,17 @@ def get_next_api_key() -> str:
         return settings.groq_api_key
     
     return _global_rotator.get_next_key()
+
+
+async def close_fallback_client():
+    """Close the fallback client if it exists."""
+    global _fallback_client
+    client_to_close = None
+    with _fallback_lock:
+        if _fallback_client:
+            client_to_close = _fallback_client
+            _fallback_client = None
+
+    if client_to_close:
+        await client_to_close.close()
+        logger.debug("Closed fallback Groq client")

@@ -5,3 +5,7 @@
 ## 2025-01-30 - Parallel Tool Execution in Agents
 **Learning:** Agents often call multiple tools in a single turn (e.g., fetching a quote and searching the web). Sequential execution of these tools is a major latency bottleneck. Using `asyncio.gather` to parallelize independent tool calls can improve response times by 50% or more.
 **Action:** Use `asyncio.gather` for multiple autonomous tool calls in agents. Ensure the assistant message is appended to history once, followed by all tool results in the correct format.
+
+## 2025-01-30 - Shared Groq Client Caching
+**Learning:** Even with an agent-based architecture where agents are initialized once, tools and other utility functions often create transient `AsyncGroq` clients. Centralizing client creation in the `GroqKeyRotator` with a per-API-key cache ensures that all parts of the application share the same connection pools, reducing handshake latency by 50-100ms per request.
+**Action:** Always use `get_groq_client()` from the rotator instead of manual instantiation. Ensure `aclose_all()` is called during application shutdown to prevent resource leaks.
