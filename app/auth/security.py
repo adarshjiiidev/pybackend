@@ -14,6 +14,7 @@ import uuid
 
 from ..config import settings
 from ..models import User, TokenBlacklist
+from .cache import user_cache, blacklist_cache
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -55,10 +56,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     else:
         expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     
-    to_encode.update({
-        "exp": expire,
-        "jti": str(uuid.uuid4())  # JWT ID for blacklisting
-    })
+    to_encode.update({"exp": expire})
+    if "jti" not in to_encode:
+        to_encode["jti"] = str(uuid.uuid4())  # JWT ID for blacklisting
     
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -89,15 +89,7 @@ def generate_verification_token() -> str:
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> User:
     """
     Dependency to get the current authenticated user from JWT token.
-    
-    Args:
-        credentials: HTTP Bearer credentials from Authorization header
-    
-    Returns:
-        User object if authenticated
-    
-    Raises:
-        HTTPException: If token is invalid, expired, or user not found
+    Optimized with in-memory caching for Z+ security and max speed.
     """
     token = credentials.credentials
     payload = verify_token(token)
@@ -109,18 +101,34 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Check if token is blacklisted (logged out)
+    # 1. Check Blacklist Cache (Instant)
     jti = payload.get("jti")
     if jti:
-        blacklisted = await TokenBlacklist.find_one(TokenBlacklist.jti == jti)
-        if blacklisted:
+        cache_status = blacklist_cache.get(jti)
+        if cache_status is True:
+            # Token is definitely blacklisted
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+        elif cache_status is False:
+            # Negative cache hit: token is known to be NOT blacklisted
+            pass
+        else:
+            # 2. Cache Miss: Check Blacklist DB (Slow, only once per TTL)
+            blacklisted = await TokenBlacklist.find_one(TokenBlacklist.jti == jti)
+            if blacklisted:
+                blacklist_cache.set(jti, True)
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Token has been revoked",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            else:
+                # Negative cache: store that it's NOT blacklisted for 5 mins
+                blacklist_cache.set(jti, False, ttl_seconds=300)
     
-    # Get user from database
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(
@@ -128,7 +136,19 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             detail="Invalid token payload",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # 3. Check User Cache (Instant)
+    user = user_cache.get(user_id)
+    if user:
+        # Optimization: Fast path for active users
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User account is deactivated"
+            )
+        return user
     
+    # 4. Fetch from DB on Cache Miss (Slow)
     user = await User.find_one(User.user_id == user_id)
     if not user:
         raise HTTPException(
@@ -142,6 +162,9 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             detail="User account is deactivated"
         )
     
+    # 5. Update Cache
+    user_cache.set(user_id, user)
+
     return user
 
 

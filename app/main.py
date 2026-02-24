@@ -12,6 +12,8 @@ import uuid
 from datetime import datetime
 
 from .config import settings, init_db, close_db
+from .auth.cache import user_cache, blacklist_cache, otp_cache
+import asyncio
 from .models import ChatRequest, SessionResponse, ConversationHistoryResponse
 from .graph import run_agent_workflow
 from .database import ConversationRepository, SessionRepository
@@ -28,12 +30,29 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+async def cleanup_caches_periodic():
+    """Background task to cleanup expired cache entries."""
+    while True:
+        try:
+            await asyncio.sleep(600)  # Cleanup every 10 minutes
+            user_cache.cleanup()
+            blacklist_cache.cleanup()
+            otp_cache.cleanup()
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Error during cache cleanup: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle manager for startup and shutdown events."""
     # Startup
     logger.info("Starting Daddy's AI backend...")
     
+    # Start cache cleanup task
+    cleanup_task = asyncio.create_task(cleanup_caches_periodic())
+
     # Initialize API key rotation
     try:
         from .config.key_rotator import initialize_rotator
@@ -55,6 +74,13 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("Shutting down Daddy's AI backend...")
+
+    # Cancel cleanup task
+    cleanup_task.cancel()
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
 
     # Cleanup Groq clients
     try:

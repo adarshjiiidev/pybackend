@@ -13,14 +13,17 @@ import secrets
 from authlib.integrations.starlette_client import OAuth
 from ..config import settings
 
-from ..models import User, OTP
+from ..models import User, OTP, TokenBlacklist
 from ..auth.security import (
     hash_password,
     verify_password,
     create_access_token,
     get_current_user,
+    verify_token,
+    security,
     REFRESH_TOKEN_EXPIRE_DAYS
 )
+from ..auth.cache import blacklist_cache, user_cache
 from ..services.otp_service import OTPService
 from ..services.email_service import EmailService
 
@@ -194,6 +197,7 @@ async def register(request: CompleteRegistrationRequest):
         is_verified=True  # Auto-verified via OTP
     )
     await user.insert()
+    user_cache.set(user.user_id, user)
     
     logger.info(f"New user registered via OTP: {user.email}")
     
@@ -206,8 +210,13 @@ async def register(request: CompleteRegistrationRequest):
     except Exception as e:
         logger.error(f"Failed to send welcome email: {e}")
     
-    # Generate JWT tokens
-    access_token = create_access_token({"sub": user.user_id, "email": user.email})
+    # Generate JWT tokens (Enriched for max speed)
+    access_token = create_access_token({
+        "sub": user.user_id,
+        "email": user.email,
+        "is_active": user.is_active,
+        "is_premium": user.is_premium
+    })
     refresh_token = create_access_token(
         {"sub": user.user_id},
         expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
@@ -266,6 +275,7 @@ async def login(request: LoginRequest):
     # Update last login timestamp
     user.last_login = datetime.utcnow()
     await user.save()
+    user_cache.set(user.user_id, user)
     
     logger.info(f"User logged in via password: {user.email}")
     
@@ -309,9 +319,33 @@ async def get_me(user: User = Depends(get_current_user)):
 
 
 @router.post("/logout")
-async def logout(user: User = Depends(get_current_user)):
-    """Logout user."""
-    logger.info(f"User logged out: {user.email}")
+async def logout(
+    request: Request,
+    user: User = Depends(get_current_user),
+    credentials=Depends(security)
+):
+    """
+    Logout user.
+    Invalidates the current token using both DB and high-speed cache (Z+ Security).
+    """
+    token = credentials.credentials
+    payload = verify_token(token)
+
+    if payload and payload.get("jti"):
+        jti = payload.get("jti")
+        exp = payload.get("exp")
+
+        # Calculate expiration
+        expires_at = datetime.fromtimestamp(exp) if exp else datetime.utcnow() + timedelta(hours=1)
+
+        # 1. Add to high-speed cache
+        blacklist_cache.set(jti, True, ttl_seconds=int((expires_at - datetime.utcnow()).total_seconds()))
+
+        # 2. Persist to DB
+        blacklisted = TokenBlacklist(jti=jti, expires_at=expires_at)
+        await blacklisted.insert()
+
+    logger.info(f"User logged out and token invalidated: {user.email}")
     return {"message": "Logged out successfully"}
 
 
@@ -337,8 +371,13 @@ async def refresh_token(refresh_token: str):
             detail="Invalid user"
         )
     
-    # Generate new tokens
-    access_token = create_access_token({"sub": user.user_id, "email": user.email})
+    # Generate new tokens (Enriched for max speed)
+    access_token = create_access_token({
+        "sub": user.user_id,
+        "email": user.email,
+        "is_active": user.is_active,
+        "is_premium": user.is_premium
+    })
     new_refresh_token = create_access_token(
         {"sub": user.user_id},
         expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
@@ -440,6 +479,7 @@ async def google_callback(request: Request):
                 password_hash=None  # OAuth user, no password
             )
             await user.save()
+            user_cache.set(user.user_id, user)
             logger.info(f"Created new user via Google OAuth: {email}")
         else:
             # Update existing user info
@@ -448,10 +488,16 @@ async def google_callback(request: Request):
             user.is_verified = True
             user.last_login = datetime.utcnow()
             await user.save()
+            user_cache.set(user.user_id, user)
             logger.info(f"Logged in existing user via Google OAuth: {email}")
         
-        # Generate JWT tokens
-        access_token = create_access_token({"sub": user.user_id, "email": user.email})
+        # Generate JWT tokens (Enriched for max speed)
+        access_token = create_access_token({
+            "sub": user.user_id,
+            "email": user.email,
+            "is_active": user.is_active,
+            "is_premium": user.is_premium
+        })
         refresh_token = create_access_token(
             {"sub": user.user_id},
             expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)

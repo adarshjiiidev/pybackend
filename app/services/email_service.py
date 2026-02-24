@@ -4,6 +4,7 @@ Email service for sending emails via Gmail SMTP.
 
 import smtplib
 import logging
+import asyncio
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Optional
@@ -155,13 +156,13 @@ class EmailService:
         """
     
     @staticmethod
-    async def send_email(
+    def _send_email_sync(
         to_email: str,
         subject: str,
         html_content: str,
         plain_text: Optional[str] = None
     ) -> bool:
-        """Send email via Gmail SMTP."""
+        """Synchronous part of email sending to be run in a separate thread."""
         try:
             # Use EMAIL_SERVER_* variables (preferred) or fallback to SMTP_*
             smtp_host = settings.email_server_host or settings.smtp_host
@@ -186,7 +187,7 @@ class EmailService:
             part2 = MIMEText(html_content, 'html')
             msg.attach(part2)
             
-            # Send email
+            # Send email (blocking I/O)
             with smtplib.SMTP(smtp_host, smtp_port) as server:
                 server.starttls()
                 server.login(smtp_user, smtp_password)
@@ -198,6 +199,25 @@ class EmailService:
         except Exception as e:
             logger.error(f"Failed to send email to {to_email}: {e}")
             return False
+
+    @staticmethod
+    async def send_email(
+        to_email: str,
+        subject: str,
+        html_content: str,
+        plain_text: Optional[str] = None
+    ) -> bool:
+        """
+        Send email via Gmail SMTP.
+        Optimized for max speed by running blocking I/O in a separate thread.
+        """
+        return await asyncio.to_thread(
+            EmailService._send_email_sync,
+            to_email,
+            subject,
+            html_content,
+            plain_text
+        )
     
     @staticmethod
     async def send_otp_email(email: str, otp_code: str, purpose: str = "registration") -> bool:
