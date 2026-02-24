@@ -8,8 +8,8 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 import re
 
-from groq import AsyncGroq
 from ..config import settings
+from ..config.key_rotator import get_groq_client
 from ..utils.retry import async_retry
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ async def browser_search_historical_data(
         Dictionary with historical price data
     """
     try:
-        client = AsyncGroq(api_key=settings.groq_api_key)
+        client = get_groq_client()
         
         # Use Browser Search supported model
         model = "openai/gpt-oss-20b"
@@ -103,7 +103,7 @@ async def browser_search_company_info(symbol: str) -> Dict[str, Any]:
         Dictionary with company information
     """
     try:
-        client = AsyncGroq(api_key=settings.groq_api_key)
+        client = get_groq_client()
         model = "openai/gpt-oss-20b"
         
         query = f"""
@@ -214,7 +214,7 @@ async def browser_search_general(query: str) -> str:
         Search results as text
     """
     try:
-        client = AsyncGroq(api_key=settings.groq_api_key)
+        client = get_groq_client()
         model = "openai/gpt-oss-20b"
         
         response = await client.chat.completions.create(
