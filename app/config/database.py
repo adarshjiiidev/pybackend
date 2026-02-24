@@ -44,6 +44,29 @@ class Database:
             
             cls.db = cls.client[settings.mongodb_db_name]
             
+            # Migration: Drop old conflicting indexes before initializing Beanie
+            try:
+                migrations = [
+                    ("verification_tokens", "expires_at_1"),
+                    ("token_blacklist", "expires_at_1"),
+                    ("otps", "expires_at_1"),
+                    ("market_data_cache", "symbol_1"),
+                    ("market_data_cache", "data_type_1"),
+                    ("conversations", "user_id_1"),
+                    ("conversations", "updated_at_1"),
+                    ("messages", "conversation_id_1"),
+                    ("messages", "created_at_1"),
+                ]
+                for coll_name, index_name in migrations:
+                    try:
+                        await cls.db[coll_name].drop_index(index_name)
+                        logger.info(f"Dropped conflicting index {index_name} from {coll_name}")
+                    except Exception:
+                        # Index might not exist, skip
+                        pass
+            except Exception as e:
+                logger.warning(f"Migration index cleanup warning: {e}")
+
             # Migration: Update existing users with null user_id before initializing indexes
             try:
                 users_collection = cls.db["users"]

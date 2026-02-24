@@ -3,6 +3,7 @@ Database models using Beanie ODM (async MongoDB ODM for Pydantic).
 """
 
 from beanie import Document, Indexed
+from pymongo import IndexModel, ASCENDING
 from pydantic import Field
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
@@ -72,8 +73,7 @@ class MarketDataCache(Document):
         name = "market_data_cache"
         indexes = [
             "cache_key",
-            "symbol",
-            "data_type",
+            IndexModel([("symbol", ASCENDING), ("data_type", ASCENDING)]),
             "cached_at"
         ]
     
@@ -146,7 +146,7 @@ class VerificationToken(Document):
         indexes = [
             "token",
             "user_id",
-            "expires_at"
+            IndexModel([("expires_at", ASCENDING)], expireAfterSeconds=0)
         ]
     
     def is_expired(self) -> bool:
@@ -165,7 +165,7 @@ class TokenBlacklist(Document):
         name = "token_blacklist"
         indexes = [
             "jti",
-            "expires_at"
+            IndexModel([("expires_at", ASCENDING)], expireAfterSeconds=0)
         ]
 
 
@@ -184,7 +184,7 @@ class OTP(Document):
         name = "otps"
         indexes = [
             "email",
-            "expires_at",
+            IndexModel([("expires_at", ASCENDING)], expireAfterSeconds=0),
             "is_used"
         ]
     

@@ -116,9 +116,10 @@ class CacheRepository:
         data_type: str
     ) -> Optional[dict[str, Any]]:
         """Retrieve cached market data if not expired."""
+        # Use cache_key with unique index for fastest lookup
+        cache_key = f"{symbol}:{data_type}"
         cache_entry = await MarketDataCache.find_one(
-            MarketDataCache.symbol == symbol,
-            MarketDataCache.data_type == data_type
+            MarketDataCache.cache_key == cache_key
         )
         
         if cache_entry and not cache_entry.is_expired():
@@ -143,10 +144,9 @@ class CacheRepository:
         # Generate cache key from symbol and data_type
         cache_key = f"{symbol}:{data_type}"
         
-        # Delete existing cache entry if present
+        # Delete existing cache entry if present using unique cache_key
         await MarketDataCache.find(
-            MarketDataCache.symbol == symbol,
-            MarketDataCache.data_type == data_type
+            MarketDataCache.cache_key == cache_key
         ).delete()
         
         # Create new cache entry
@@ -173,13 +173,18 @@ class CacheRepository:
     @staticmethod
     async def clear_expired_cache() -> int:
         """Remove all expired cache entries."""
-        all_entries = await MarketDataCache.find_all().to_list()
-        deleted = 0
+        # Use MongoDB expression to find and delete all expired entries in a single query
+        # expiry_time = cached_at + ttl_seconds (converted to ms for MongoDB $add)
+        now = datetime.utcnow()
+        result = await MarketDataCache.find({
+            "$expr": {
+                "$lt": [
+                    {"$add": ["$cached_at", {"$multiply": ["$ttl_seconds", 1000]}]},
+                    now
+                ]
+            }
+        }).delete()
         
-        for entry in all_entries:
-            if entry.is_expired():
-                await entry.delete()
-                deleted += 1
-        
-        logger.info(f"Cleared {deleted} expired cache entries")
-        return deleted
+        deleted_count = result.deleted_count if result else 0
+        logger.info(f"Cleared {deleted_count} expired cache entries")
+        return deleted_count
