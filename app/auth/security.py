@@ -27,6 +27,13 @@ REFRESH_TOKEN_EXPIRE_DAYS = 7
 # HTTP Bearer for authorization header
 security = HTTPBearer()
 
+# In-memory cache for ultra-fast auth (Bolt: ⚡ Speed boost)
+# Stores user_id -> (User, expiry) and jti -> (is_blacklisted, expiry)
+_user_cache: dict[str, tuple[User, datetime]] = {}
+_blacklist_cache: dict[str, datetime] = {}
+AUTH_CACHE_TTL_SECONDS = 300  # 5 minutes
+MAX_CACHE_SIZE = 1000  # Prevent memory leaks
+
 
 def hash_password(password: str) -> str:
     """Hash a password using bcrypt."""
@@ -89,15 +96,7 @@ def generate_verification_token() -> str:
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> User:
     """
     Dependency to get the current authenticated user from JWT token.
-    
-    Args:
-        credentials: HTTP Bearer credentials from Authorization header
-    
-    Returns:
-        User object if authenticated
-    
-    Raises:
-        HTTPException: If token is invalid, expired, or user not found
+    Optimized with in-memory caching to avoid redundant DB calls on every request.
     """
     token = credentials.credentials
     payload = verify_token(token)
@@ -112,15 +111,31 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     # Check if token is blacklisted (logged out)
     jti = payload.get("jti")
     if jti:
+        # Check cache first
+        now = datetime.utcnow()
+        if jti in _blacklist_cache:
+            if _blacklist_cache[jti] > now:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Token has been revoked",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            else:
+                del _blacklist_cache[jti]
+
         blacklisted = await TokenBlacklist.find_one(TokenBlacklist.jti == jti)
         if blacklisted:
+            # Cache blacklist status until token would have expired anyway
+            if len(_blacklist_cache) >= MAX_CACHE_SIZE:
+                _blacklist_cache.clear()
+            _blacklist_cache[jti] = blacklisted.expires_at
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
                 headers={"WWW-Authenticate": "Bearer"},
             )
     
-    # Get user from database
+    # Get user_id from token
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(
@@ -129,6 +144,17 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    # Try cache first (Bolt: ⚡ Avoid DB hit on every request)
+    now = datetime.utcnow()
+    if user_id in _user_cache:
+        cached_user, expiry = _user_cache[user_id]
+        if expiry > now:
+            # logger.debug(f"Auth cache HIT for {user_id}")
+            return cached_user
+        else:
+            del _user_cache[user_id]
+
+    # Cache miss - Get user from database
     user = await User.find_one(User.user_id == user_id)
     if not user:
         raise HTTPException(
@@ -142,6 +168,13 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             detail="User account is deactivated"
         )
     
+    # Cache user for future requests (with simple size limit)
+    if len(_user_cache) >= MAX_CACHE_SIZE:
+        # Clear oldest (very simple approach)
+        _user_cache.clear()
+
+    _user_cache[user_id] = (user, now + timedelta(seconds=AUTH_CACHE_TTL_SECONDS))
+
     return user
 
 

@@ -3,7 +3,7 @@ Production Authentication API with OTP verification.
 Handles OTP-based registration, login, and verification.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, status, Request
+from fastapi import APIRouter, HTTPException, Depends, status, Request, BackgroundTasks
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr
 from typing import Optional
@@ -153,7 +153,7 @@ async def verify_otp(request: VerifyOTPRequest):
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-async def register(request: CompleteRegistrationRequest):
+async def register(request: CompleteRegistrationRequest, background_tasks: BackgroundTasks):
     """
     Complete registration after OTP verification.
     Verifies OTP, creates user account, sends welcome email, and returns JWT tokens.
@@ -197,14 +197,12 @@ async def register(request: CompleteRegistrationRequest):
     
     logger.info(f"New user registered via OTP: {user.email}")
     
-    # Send welcome email (async, don't wait)
-    try:
-        await EmailService.send_welcome_email(
-            user.email,
-            user.full_name or user.email.split('@')[0]
-        )
-    except Exception as e:
-        logger.error(f"Failed to send welcome email: {e}")
+    # Send welcome email (Bolt: ⚡ Background task for faster registration)
+    background_tasks.add_task(
+        EmailService.send_welcome_email,
+        user.email,
+        user.full_name or user.email.split('@')[0]
+    )
     
     # Generate JWT tokens
     access_token = create_access_token({"sub": user.user_id, "email": user.email})
@@ -229,8 +227,16 @@ async def register(request: CompleteRegistrationRequest):
     }
 
 
+async def _update_last_login(user_id: str):
+    """Background task to update last login timestamp."""
+    user = await User.find_one(User.user_id == user_id)
+    if user:
+        user.last_login = datetime.utcnow()
+        await user.save()
+
+
 @router.post("/login", response_model=TokenResponse)
-async def login(request: LoginRequest):
+async def login(request: LoginRequest, background_tasks: BackgroundTasks):
     """
     Login with email and password.
     Returns JWT tokens on successful authentication.
@@ -263,9 +269,8 @@ async def login(request: LoginRequest):
             detail="Account has been deactivated"
         )
     
-    # Update last login timestamp
-    user.last_login = datetime.utcnow()
-    await user.save()
+    # Update last login timestamp (Bolt: ⚡ Background task for faster response)
+    background_tasks.add_task(_update_last_login, user.user_id)
     
     logger.info(f"User logged in via password: {user.email}")
     
@@ -389,7 +394,7 @@ async def google_auth(request: Request):
 
 
 @router.get("/callback/google")
-async def google_callback(request: Request):
+async def google_callback(request: Request, background_tasks: BackgroundTasks):
     """
     Handle Google OAuth callback.
     Exchanges code for token, creates/logs in user, and redirects to frontend.
@@ -446,8 +451,8 @@ async def google_callback(request: Request):
             if full_name and not user.full_name:
                 user.full_name = full_name
             user.is_verified = True
-            user.last_login = datetime.utcnow()
-            await user.save()
+            # Update last login in background
+            background_tasks.add_task(_update_last_login, user.user_id)
             logger.info(f"Logged in existing user via Google OAuth: {email}")
         
         # Generate JWT tokens
