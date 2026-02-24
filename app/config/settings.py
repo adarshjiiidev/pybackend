@@ -72,6 +72,11 @@ class Settings(BaseSettings):
     # External API Keys (Optional)
     serpapi_key: Optional[str] = None  # For custom web search (if not using Compound)
     news_api_key: Optional[str] = None  # For news fetching
+
+    # Qdrant Vector DB — KB semantic search
+    qdrant_url: Optional[str] = None      # Cloud URL (set in .env)
+    qdrant_api_key: Optional[str] = None  # Cloud API key (set in .env)
+    qdrant_collection: str = "daddys_kb"  # Collection name
     
     # Email/SMTP Configuration (supports both formats)
     email_server: bool = True

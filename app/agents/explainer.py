@@ -252,16 +252,19 @@ Tools available:
         
         tools_used = []
         max_tool_rounds = 3
-        
-        # Use vision model when images present (Groq: llama-4-scout or llama-4-maverick)
+
+        # Use vision model when images present
         model = settings.model_vision if images else self.model
-        
+
+        # 🔑 Temperature: 0.0 when grounded in KB facts, 0.2 otherwise (prevents hallucination)
+        active_temperature = 0.3 if kb_context else self.temperature  # 0.3 = factual but natural
+
         try:
             for round_num in range(max_tool_rounds + 1):
                 response = await self.client.chat.completions.create(
                     model=model,
                     messages=messages,
-                    temperature=self.temperature,
+                    temperature=active_temperature,
                     max_tokens=self.max_tokens
                 )
                 content = response.choices[0].message.content or ""

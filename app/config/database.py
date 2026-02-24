@@ -88,7 +88,28 @@ class Database:
             )
             
             logger.info("MongoDB connection established successfully")
-            
+
+            # ── Performance indexes (idempotent, conflict-safe) ────────────────
+            db = cls.db
+            indexes = [
+                # (collection, index_spec, kwargs)
+                ("users",          [("email", 1)],                              {"unique": True, "background": True}),
+                ("users",          [("user_id", 1)],                            {"unique": True, "background": True}),
+                ("token_blacklist",[("jti", 1)],                                {"background": True}),
+                ("token_blacklist",[("expires_at", 1)],                         {"expireAfterSeconds": 0, "background": True}),
+                ("otps",           [("email", 1), ("created_at", -1)],          {"background": True}),
+                ("otps",           [("expires_at", 1)],                         {"expireAfterSeconds": 0, "background": True}),
+                ("conversations",  [("user_id", 1), ("updated_at", -1)],        {"background": True}),
+                ("messages",       [("conversation_id", 1), ("created_at", 1)], {"background": True}),
+            ]
+            for collection, spec, kwargs in indexes:
+                try:
+                    await db[collection].create_index(spec, **kwargs)
+                except Exception as idx_err:
+                    # Index already exists with same/different options — skip silently
+                    logger.debug(f"Index on {collection}{spec} skipped: {idx_err}")
+            logger.info("✅ MongoDB indexes ensured")
+
         except Exception as e:
             logger.error(f"Failed to connect to MongoDB: {e}")
             raise

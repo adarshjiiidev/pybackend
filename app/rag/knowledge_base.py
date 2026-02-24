@@ -200,35 +200,37 @@ def get_kb_rag() -> KnowledgeBaseRAG:
     return _kb_rag
 
 
-# Tool function for agents
+# Tool function for agents — uses Qdrant Cloud (keyword fallback built into QdrantKBRAG)
 async def search_knowledge_base(query: str) -> Dict[str, Any]:
     """
-    Search knowledge base for relevant information.
-    Used by agents to retrieve domain-specific knowledge.
+    Search knowledge base using Qdrant semantic search.
+    Primary: Qdrant Cloud cosine similarity.
+    Fallback: keyword index (automatic).
     """
     try:
-        kb = get_kb_rag()
+        # Import here to avoid circular import; get_kb_rag points to QdrantKBRAG
+        from .qdrant_kb import get_qdrant_rag
+        kb = get_qdrant_rag()
         results = kb.search(query, top_k=3)
-        
+
         if not results:
             return {
                 "found": False,
                 "message": "No relevant information found in knowledge base"
             }
-        
+
         return {
             "found": True,
             "results": [
                 {
                     "title": r["title"],
                     "filename": r["filename"],
-                    "topics": r.get("topics", []),
+                    "score": round(r.get("score", 0), 3),
                     "content": r["content"][:1500] + ("..." if len(r["content"]) > 1500 else "")
                 }
                 for r in results
             ],
-            "matched_topics": list(set([t for r in results for t in r.get("topics", [])])),
-            "tip": "Use this knowledge to give a thorough, accurate answer. Cite the source naturally."
+            "tip": "Use this knowledge to give a thorough, accurate answer. Cite the source file naturally."
         }
     except Exception as e:
         logger.error(f"Knowledge base search error: {e}")

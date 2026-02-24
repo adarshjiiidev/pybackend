@@ -14,6 +14,17 @@ import uuid
 
 from ..config import settings
 from ..models import User, TokenBlacklist
+import time
+
+# ── In-memory caches ────────────────────────────────────────────────────────
+# User cache: avoids DB lookup on every authenticated request
+_user_cache: dict[str, tuple] = {}          # user_id → (User, timestamp)
+_USER_CACHE_TTL = 60                         # seconds
+
+# Blacklist cache: avoids DB lookup for non-revoked tokens
+_blacklist_cache: set[str] = set()           # set of known-revoked jtis
+_blacklist_miss_cache: set[str] = set()      # set of known-clean jtis (not revoked)
+_BLACKLIST_MISS_TTL_MAX = 5000               # evict oldest miss entries when set gets this big
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -88,39 +99,46 @@ def generate_verification_token() -> str:
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> User:
     """
-    Dependency to get the current authenticated user from JWT token.
-    
-    Args:
-        credentials: HTTP Bearer credentials from Authorization header
-    
-    Returns:
-        User object if authenticated
-    
-    Raises:
-        HTTPException: If token is invalid, expired, or user not found
+    Dependency to get the current authenticated user.
+    Uses two in-memory caches to avoid repeated DB hits:
+    - _user_cache: user object cached for 60s by user_id
+    - _blacklist_miss_cache: known-clean jtis skip DB blacklist check
     """
     token = credentials.credentials
     payload = verify_token(token)
-    
+
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    # Check if token is blacklisted (logged out)
+
+    # Check token blacklist — cache-first
     jti = payload.get("jti")
     if jti:
-        blacklisted = await TokenBlacklist.find_one(TokenBlacklist.jti == jti)
-        if blacklisted:
+        if jti in _blacklist_cache:
+            # Known revoked
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-    
-    # Get user from database
+        if jti not in _blacklist_miss_cache:
+            # Unknown — check DB once
+            blacklisted = await TokenBlacklist.find_one(TokenBlacklist.jti == jti)
+            if blacklisted:
+                _blacklist_cache.add(jti)
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Token has been revoked",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            # Cache as clean; evict if set too large
+            if len(_blacklist_miss_cache) > _BLACKLIST_MISS_TTL_MAX:
+                _blacklist_miss_cache.clear()
+            _blacklist_miss_cache.add(jti)
+
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(
@@ -128,20 +146,24 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             detail="Invalid token payload",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
+    # User cache lookup
+    cached = _user_cache.get(user_id)
+    if cached:
+        user_obj, ts = cached
+        if time.time() - ts < _USER_CACHE_TTL:
+            if not user_obj.is_active:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is deactivated")
+            return user_obj
+
+    # DB lookup (cache miss)
     user = await User.find_one(User.user_id == user_id)
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-    
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is deactivated"
-        )
-    
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is deactivated")
+
+    _user_cache[user_id] = (user, time.time())
     return user
 
 

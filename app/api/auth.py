@@ -10,6 +10,7 @@ from typing import Optional
 from datetime import datetime, timedelta
 import logging
 import secrets
+import asyncio
 from authlib.integrations.starlette_client import OAuth
 from ..config import settings
 
@@ -391,78 +392,72 @@ async def google_auth(request: Request):
 @router.get("/callback/google")
 async def google_callback(request: Request):
     """
-    Handle Google OAuth callback.
-    Exchanges code for token, creates/logs in user, and redirects to frontend.
+    Handle Google OAuth callback — optimized for speed.
+    DB writes are fire-and-forget so redirect is instant.
     """
     try:
-        # Verify state parameter
+        # Verify state
         state = request.query_params.get('state')
         if not state or state not in oauth_states:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid state parameter"
-            )
-        
-        # Remove used state
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid state parameter")
         oauth_states.pop(state, None)
-        
-        # Exchange authorization code for access token
+
+        # Exchange auth code (network round-trip to Google — unavoidable)
         token = await oauth.google.authorize_access_token(request)
-        
-        # Get user info from Google
         user_info = token.get('userinfo')
         if not user_info:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to get user information from Google"
-            )
-        
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to get user info from Google")
+
         email = user_info.get('email')
         full_name = user_info.get('name')
-        
         if not email:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email not provided by Google"
-            )
-        
-        logger.info(f"Google OAuth callback for email: {email}")
-        
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email not provided by Google")
+
+        logger.info(f"Google OAuth callback: {email}")
+
         # Find or create user
-        user = await User.find_one(User.email == email)
-        
+        user = await User.find_one(User.email == email)  # Needs index on email (see database.py)
+
         if not user:
-            # Create new user from Google account
+            # New user — insert once, no extra save()
             user = User(
                 email=email,
                 full_name=full_name,
-                is_verified=True,  # Verified by Google
-                password_hash=None  # OAuth user, no password
+                is_verified=True,
+                password_hash=None,
             )
-            await user.save()
-            logger.info(f"Created new user via Google OAuth: {email}")
+            await user.insert()
+            logger.info(f"New user via Google OAuth: {email}")
         else:
-            # Update existing user info
-            if full_name and not user.full_name:
-                user.full_name = full_name
-            user.is_verified = True
-            user.last_login = datetime.utcnow()
-            await user.save()
-            logger.info(f"Logged in existing user via Google OAuth: {email}")
-        
-        # Generate JWT tokens
+            # Existing user — update last_login FIRE-AND-FORGET (don't block the redirect)
+            async def _update_login(u):
+                try:
+                    if full_name and not u.full_name:
+                        u.full_name = full_name
+                    u.is_verified = True
+                    u.last_login = datetime.utcnow()
+                    await u.save()
+                except Exception as ex:
+                    logger.warning(f"last_login update failed (non-critical): {ex}")
+            asyncio.create_task(_update_login(user))
+            logger.info(f"Existing user logged in via Google: {email}")
+
+        # Generate JWT tokens (CPU-only, instant)
         access_token = create_access_token({"sub": user.user_id, "email": user.email})
         refresh_token = create_access_token(
             {"sub": user.user_id},
             expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
         )
-        
-        # Redirect to frontend with tokens
-        callback_url = f"{settings.frontend_url}/auth/callback?access_token={access_token}&refresh_token={refresh_token}"
-        
+
+        callback_url = (
+            f"{settings.frontend_url}/auth/callback"
+            f"?access_token={access_token}&refresh_token={refresh_token}"
+        )
         return RedirectResponse(url=callback_url)
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Google OAuth callback error: {e}")
-        # Redirect to frontend with error
         return RedirectResponse(url=f"{settings.frontend_url}/?error=oauth_failed")
+

@@ -44,6 +44,17 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to initialize key rotator: {e}")
         logger.warning("⚠️ Continuing with single key mode")
     
+    # Warm up Qdrant KB (loads embedding model + verifies cloud connection)
+    try:
+        from .rag import get_kb_rag
+        kb = get_kb_rag()
+        if getattr(kb, '_ready', False):
+            logger.info("✅ Qdrant KB warmed up (cloud connected)")
+        else:
+            logger.warning("⚠️  Qdrant KB using keyword fallback — run: python -m app.rag.ingest_kb")
+    except Exception as e:
+        logger.error(f"KB warmup error: {e}")
+
     try:
         await init_db()
         logger.info("Database initialized successfully")
