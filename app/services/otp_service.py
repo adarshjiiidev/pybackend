@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from ..models import OTP
 from .email_service import EmailService
+from ..auth.cache import otp_cache
 
 logger = logging.getLogger(__name__)
 
@@ -29,16 +30,29 @@ class OTPService:
     
     @staticmethod
     async def check_rate_limit(email: str) -> bool:
-        """Check if user has exceeded OTP request rate limit."""
+        """
+        Check if user has exceeded OTP request rate limit.
+        Uses high-speed cache for rate limiting.
+        """
+        cache_key = f"otp_limit:{email}"
+        requests = otp_cache.get(cache_key) or []
+        
         cutoff_time = datetime.utcnow() - timedelta(minutes=OTPService.RATE_LIMIT_MINUTES)
+        # Filter requests within window
+        requests = [r for r in requests if r > cutoff_time]
         
-        # Count recent OTPs for this email
-        recent_otps = await OTP.find(
-            OTP.email == email,
-            OTP.created_at >= cutoff_time
-        ).count()
-        
-        return recent_otps < OTPService.MAX_OTPS_PER_PERIOD
+        if len(requests) >= OTPService.MAX_OTPS_PER_PERIOD:
+            return False
+
+        return True
+
+    @staticmethod
+    def _update_rate_limit_cache(email: str):
+        """Update rate limit cache with new request."""
+        cache_key = f"otp_limit:{email}"
+        requests = otp_cache.get(cache_key) or []
+        requests.append(datetime.utcnow())
+        otp_cache.set(cache_key, requests, ttl_seconds=OTPService.RATE_LIMIT_MINUTES * 60)
     
     @staticmethod
     async def create_and_send_otp(
@@ -76,6 +90,10 @@ class OTPService:
             )
             await otp.insert()
             
+            # Update cache
+            OTPService._update_rate_limit_cache(email)
+            otp_cache.set(f"otp_verify:{email}:{purpose}", otp, ttl_seconds=OTPService.OTP_EXPIRY_MINUTES * 60)
+
             # Send email
             email_sent = await EmailService.send_otp_email(email, otp_code, purpose)
             
@@ -98,18 +116,24 @@ class OTPService:
     ) -> tuple[bool, str]:
         """
         Verify an OTP code.
+        Optimized with cache for instant verification.
         
         Returns:
             (success, message) tuple
         """
         try:
-            # Find the most recent valid OTP
-            otp = await OTP.find_one(
-                OTP.email == email,
-                OTP.code == code,
-                OTP.purpose == purpose,
-                OTP.is_used == False
-            )
+            # 1. Try Cache first
+            cache_key = f"otp_verify:{email}:{purpose}"
+            otp = otp_cache.get(cache_key)
+
+            # 2. Fallback to DB
+            if not otp or otp.code != code:
+                otp = await OTP.find_one(
+                    OTP.email == email,
+                    OTP.code == code,
+                    OTP.purpose == purpose,
+                    OTP.is_used == False
+                )
             
             if not otp:
                 return False, "Invalid or expired OTP code"
@@ -133,6 +157,7 @@ class OTPService:
             # Valid OTP - mark as used
             otp.is_used = True
             await otp.save()
+            otp_cache.delete(cache_key) # Invalidate cache
             
             logger.info(f"OTP verified successfully for {email} (purpose: {purpose})")
             return True, "OTP verified successfully"
