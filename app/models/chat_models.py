@@ -3,6 +3,7 @@ Chat-related database models for conversations and messages.
 """
 
 from beanie import Document, Indexed, Link
+from pymongo import IndexModel, ASCENDING, DESCENDING
 from pydantic import Field
 from datetime import datetime
 from typing import Optional, List
@@ -41,9 +42,8 @@ class Conversation(Document):
         name = "conversations"
         indexes = [
             "conversation_id",
-            "user_id",
+            IndexModel([("user_id", ASCENDING), ("updated_at", DESCENDING)]),
             "created_at",
-            "updated_at",
             "share_id"  # Index for fast public conversation lookups
         ]
 
@@ -78,6 +78,5 @@ class Message(Document):
         name = "messages"
         indexes = [
             "message_id",
-            "conversation_id",
-            "created_at"
+            IndexModel([("conversation_id", ASCENDING), ("created_at", ASCENDING)]),
         ]

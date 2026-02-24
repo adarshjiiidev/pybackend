@@ -9,3 +9,7 @@
 ## 2025-01-30 - Shared Groq Client Caching
 **Learning:** Even with an agent-based architecture where agents are initialized once, tools and other utility functions often create transient `AsyncGroq` clients. Centralizing client creation in the `GroqKeyRotator` with a per-API-key cache ensures that all parts of the application share the same connection pools, reducing handshake latency by 50-100ms per request.
 **Action:** Always use `get_groq_client()` from the rotator instead of manual instantiation. Ensure `aclose_all()` is called during application shutdown to prevent resource leaks.
+
+## 2026-02-24 - Database Index & Efficiency Optimization
+**Learning:** MongoDB TTL indexes are much more efficient for data cleanup than application-level O(N) loops. Compound indexes on (user_id, updated_at) and (conversation_id, created_at) are essential for fast history retrieval. When adding TTL or changing index options, existing indexes must be dropped first to avoid IndexOptionsConflict.
+**Action:** Use TTL indexes for expirations. Always check for and drop conflicting indexes during startup migrations when modifying index options.
