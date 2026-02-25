@@ -302,20 +302,26 @@ async def send_message(
         )
         await user_message.insert()
 
-        # Fetch conversation history (truncated to last 20 messages)
+        # Fetch conversation history (only last 20 messages, excluding current)
+        # We fetch 21 because the most recent one is the one we just inserted
         messages = await Message.find(
             Message.conversation_id == conversation.conversation_id
-        ).sort("+created_at").to_list()
+        ).sort("-created_at").limit(21).to_list()
 
-        raw_history = [
+        # The messages are now in descending order: [current, last, 2nd_last, ...]
+        # We want history in ascending order, excluding current.
+        # Skip the first one (current) and reverse the rest.
+        history_msgs = messages[1:]
+        history_msgs.reverse()
+
+        conversation_history = [
             {
                 "role": msg.role,
                 "content": msg.content,
                 "images": msg.images if hasattr(msg, "images") else None,
             }
-            for msg in messages[:-1]  # Exclude current message
+            for msg in history_msgs
         ]
-        conversation_history = raw_history[-20:] if len(raw_history) > 20 else raw_history
 
         # Create event queue and start background AI task
         queue = asyncio.Queue()
