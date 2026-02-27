@@ -18,7 +18,7 @@ from app.models.chat_models import Conversation, Message
 from app.models.db_models import User
 from app.models.agent_state import AgentState, AgentMode
 from app.auth.security import get_current_user, get_optional_user
-from app.graph.workflow import create_agent_graph
+from app.graph.workflow import agent_graph
 from app.utils.rate_limiter import TokenBucket
 
 logger = logging.getLogger(__name__)
@@ -95,13 +95,11 @@ async def _run_ai_workflow(
             "has_vision_content": None,
         }
 
-        # Create and run workflow
-        workflow = create_agent_graph()
-
         # Push thinking status
         await queue.put({"event": "status", "data": {"stage": "thinking", "message": "Thinking..."}})
 
-        final_state = await workflow.ainvoke(state)
+        # PERFORMANCE: Use pre-compiled global agent_graph instead of creating a new one on every request
+        final_state = await agent_graph.ainvoke(state)
 
         if final_state is None:
             await queue.put({"event": "error", "data": {"error": "Workflow returned no response."}})
@@ -302,10 +300,14 @@ async def send_message(
         )
         await user_message.insert()
 
-        # Fetch conversation history (truncated to last 20 messages)
-        messages = await Message.find(
+        # PERFORMANCE: Fetch only the last 21 messages from MongoDB (current user message + 20 history)
+        # This prevents loading entire conversation history into memory as it grows.
+        recent_messages = await Message.find(
             Message.conversation_id == conversation.conversation_id
-        ).sort("+created_at").to_list()
+        ).sort("-created_at").limit(21).to_list()
+
+        # Reverse to maintain chronological order for the agent
+        recent_messages.sort(key=lambda m: m.created_at)
 
         raw_history = [
             {
@@ -313,9 +315,9 @@ async def send_message(
                 "content": msg.content,
                 "images": msg.images if hasattr(msg, "images") else None,
             }
-            for msg in messages[:-1]  # Exclude current message
+            for msg in recent_messages[:-1]  # Exclude the current message we just saved
         ]
-        conversation_history = raw_history[-20:] if len(raw_history) > 20 else raw_history
+        conversation_history = raw_history
 
         # Create event queue and start background AI task
         queue = asyncio.Queue()
