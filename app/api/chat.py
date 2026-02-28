@@ -18,10 +18,27 @@ from app.models.chat_models import Conversation, Message
 from app.models.db_models import User
 from app.models.agent_state import AgentState, AgentMode
 from app.auth.security import get_current_user, get_optional_user
-from app.graph.workflow import create_agent_graph
+from app.graph import agent_graph
 from app.utils.rate_limiter import TokenBucket
 
 logger = logging.getLogger(__name__)
+
+# Performance Optimization: Initialize title generation LLM once at module level
+_title_llm = None
+
+
+def get_title_llm():
+    global _title_llm
+    if _title_llm is None:
+        from langchain_groq import ChatGroq
+        from app.config import settings
+        _title_llm = ChatGroq(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            temperature=0.2,
+            api_key=settings.groq_api_key,
+        )
+    return _title_llm
+
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -95,8 +112,8 @@ async def _run_ai_workflow(
             "has_vision_content": None,
         }
 
-        # Create and run workflow
-        workflow = create_agent_graph()
+        # Create and run workflow (Optimized: reuse pre-compiled global graph)
+        workflow = agent_graph
 
         # Push thinking status
         await queue.put({"event": "status", "data": {"stage": "thinking", "message": "Thinking..."}})
@@ -157,14 +174,7 @@ async def _run_ai_workflow(
                 if msg_lower in greeting_words or msg_lower.startswith(('good morning', 'good afternoon', 'good evening')):
                     generated_title = "Welcome Chat"
                 else:
-                    from langchain_groq import ChatGroq
-                    from app.config import settings
-
-                    llm = ChatGroq(
-                        model="meta-llama/llama-4-scout-17b-16e-instruct",
-                        temperature=0.2,
-                        api_key=settings.groq_api_key,
-                    )
+                    llm = get_title_llm()
                     title_prompt = f"""Generate a short title (3-6 words) that tells the user WHAT THIS CHAT IS ABOUT at a glance.
 
 RULES:
@@ -302,10 +312,14 @@ async def send_message(
         )
         await user_message.insert()
 
-        # Fetch conversation history (truncated to last 20 messages)
+        # Fetch conversation history (Optimized: fetch only last 21 messages from DB)
+        # We fetch 21 because current message is already saved and we want 20 history messages.
         messages = await Message.find(
             Message.conversation_id == conversation.conversation_id
-        ).sort("+created_at").to_list()
+        ).sort("-created_at").limit(21).to_list()
+
+        # Reverse to maintain chronological order for the agent
+        messages.reverse()
 
         raw_history = [
             {
@@ -315,7 +329,7 @@ async def send_message(
             }
             for msg in messages[:-1]  # Exclude current message
         ]
-        conversation_history = raw_history[-20:] if len(raw_history) > 20 else raw_history
+        conversation_history = raw_history
 
         # Create event queue and start background AI task
         queue = asyncio.Queue()
