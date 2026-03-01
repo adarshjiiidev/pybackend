@@ -18,7 +18,7 @@ from app.models.chat_models import Conversation, Message
 from app.models.db_models import User
 from app.models.agent_state import AgentState, AgentMode
 from app.auth.security import get_current_user, get_optional_user
-from app.graph.workflow import create_agent_graph
+from app.graph.workflow import agent_graph
 from app.utils.rate_limiter import TokenBucket
 
 logger = logging.getLogger(__name__)
@@ -31,6 +31,23 @@ rate_limiter = TokenBucket(capacity=100, refill_rate=10.0, tokens_per_request=1)
 # In-memory store for pending AI jobs: conversation_id -> asyncio.Queue
 # The SSE endpoint reads from this queue; the background task writes to it.
 _pending_jobs: Dict[str, asyncio.Queue] = {}
+
+# Lazy-loaded singleton for title generation to avoid re-instantiation overhead
+_title_llm = None
+
+
+def get_title_llm():
+    """Get or create a singleton ChatGroq instance for title generation."""
+    global _title_llm
+    if _title_llm is None:
+        from langchain_groq import ChatGroq
+        from app.config import settings
+        _title_llm = ChatGroq(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            temperature=0.2,
+            api_key=settings.groq_api_key,
+        )
+    return _title_llm
 
 
 # --- Pydantic models ---
@@ -95,13 +112,11 @@ async def _run_ai_workflow(
             "has_vision_content": None,
         }
 
-        # Create and run workflow
-        workflow = create_agent_graph()
-
         # Push thinking status
         await queue.put({"event": "status", "data": {"stage": "thinking", "message": "Thinking..."}})
 
-        final_state = await workflow.ainvoke(state)
+        # Run pre-compiled global workflow instance (Performance: avoid rebuilding graph)
+        final_state = await agent_graph.ainvoke(state)
 
         if final_state is None:
             await queue.put({"event": "error", "data": {"error": "Workflow returned no response."}})
@@ -157,14 +172,9 @@ async def _run_ai_workflow(
                 if msg_lower in greeting_words or msg_lower.startswith(('good morning', 'good afternoon', 'good evening')):
                     generated_title = "Welcome Chat"
                 else:
-                    from langchain_groq import ChatGroq
-                    from app.config import settings
+                    # Use lazy-loaded singleton LLM
+                    llm = get_title_llm()
 
-                    llm = ChatGroq(
-                        model="meta-llama/llama-4-scout-17b-16e-instruct",
-                        temperature=0.2,
-                        api_key=settings.groq_api_key,
-                    )
                     title_prompt = f"""Generate a short title (3-6 words) that tells the user WHAT THIS CHAT IS ABOUT at a glance.
 
 RULES:
@@ -302,10 +312,15 @@ async def send_message(
         )
         await user_message.insert()
 
-        # Fetch conversation history (truncated to last 20 messages)
+        # Fetch conversation history (Performance: fetch only last 21 messages from DB)
+        # We fetch 21 to get the last 20 and the current message if it exists (though it's handled separately below)
+        # Fetching directly from DB reduces I/O and memory overhead for long conversations.
         messages = await Message.find(
             Message.conversation_id == conversation.conversation_id
-        ).sort("+created_at").to_list()
+        ).sort("-created_at").limit(21).to_list()
+
+        # Reverse to maintain chronological order for the AI model
+        messages.reverse()
 
         raw_history = [
             {
@@ -315,7 +330,7 @@ async def send_message(
             }
             for msg in messages[:-1]  # Exclude current message
         ]
-        conversation_history = raw_history[-20:] if len(raw_history) > 20 else raw_history
+        conversation_history = raw_history
 
         # Create event queue and start background AI task
         queue = asyncio.Queue()
