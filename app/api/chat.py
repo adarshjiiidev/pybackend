@@ -18,7 +18,7 @@ from app.models.chat_models import Conversation, Message
 from app.models.db_models import User
 from app.models.agent_state import AgentState, AgentMode
 from app.auth.security import get_current_user, get_optional_user
-from app.graph.workflow import create_agent_graph
+from app.graph.workflow import agent_graph
 from app.utils.rate_limiter import TokenBucket
 
 logger = logging.getLogger(__name__)
@@ -95,13 +95,11 @@ async def _run_ai_workflow(
             "has_vision_content": None,
         }
 
-        # Create and run workflow
-        workflow = create_agent_graph()
-
+        # Run the pre-compiled agent graph (performance optimization: no re-build on every request)
         # Push thinking status
         await queue.put({"event": "status", "data": {"stage": "thinking", "message": "Thinking..."}})
 
-        final_state = await workflow.ainvoke(state)
+        final_state = await agent_graph.ainvoke(state)
 
         if final_state is None:
             await queue.put({"event": "error", "data": {"error": "Workflow returned no response."}})
@@ -302,20 +300,23 @@ async def send_message(
         )
         await user_message.insert()
 
-        # Fetch conversation history (truncated to last 20 messages)
+        # Fetch conversation history (optimized: get last 21 messages from DB directly)
         messages = await Message.find(
             Message.conversation_id == conversation.conversation_id
-        ).sort("+created_at").to_list()
+        ).sort("-created_at").limit(21).to_list()
 
+        # Build history from fetched messages (excluding the most recent one we just saved)
+        # They are currently in reverse chronological order (newest first)
         raw_history = [
             {
                 "role": msg.role,
                 "content": msg.content,
                 "images": msg.images if hasattr(msg, "images") else None,
             }
-            for msg in messages[:-1]  # Exclude current message
+            for msg in messages[1:]  # Skip the current user message
         ]
-        conversation_history = raw_history[-20:] if len(raw_history) > 20 else raw_history
+        # Reverse to get chronological order for the agent
+        conversation_history = list(reversed(raw_history))
 
         # Create event queue and start background AI task
         queue = asyncio.Queue()
