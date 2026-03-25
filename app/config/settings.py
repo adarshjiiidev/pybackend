@@ -1,45 +1,68 @@
 """
 Application settings using Pydantic Settings.
-Optimized for Groq's GPT-OSS-120B reasoning model and Compound AI.
+Dual-provider: OpenRouter (primary LLM) + Groq (web search + GPT-OSS deep reasoning).
 """
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator, model_validator
 from typing import Optional, Literal
 from enum import Enum
 
 
 class ModelType(str, Enum):
     """Available model types for different tasks."""
-    REASONING_DEEP = "reasoning_deep"  # GPT-OSS-120B for deep reasoning
-    REASONING_FAST = "reasoning_fast"  # GPT-OSS-20B for faster reasoning
-    COMPOUND = "compound"  # Compound AI with built-in tools
-    COMPOUND_MINI = "compound_mini"  # Lightweight compound
+    REASONING_DEEP = "reasoning_deep"  # GPT-OSS-120B for deep reasoning (Groq)
+    REASONING_FAST = "reasoning_fast"  # GPT-OSS-20B for faster reasoning (Groq)
+    COMPOUND = "compound"  # Compound AI with built-in tools (Groq only)
+    COMPOUND_MINI = "compound_mini"  # Lightweight compound (Groq only)
     FAST = "fast"  # Quick responses, simple tasks
     ANALYSIS = "analysis"  # Data analysis, technical tasks
     CREATIVE = "creative"  # Educational content, explanations
     ROUTER = "router"  # Intent classification
+    KB_RAG = "kb_rag"  # Knowledge base / RAG synthesis
+    VISION = "vision"  # Vision & multimodal (Groq only)
 
 
 class Settings(BaseSettings):
     """Application configuration settings optimized for Groq API."""
     
-    # LLM Configuration - Groq Multi-Model System with Key Rotation
+    # ── Groq API Keys (for web search + GPT-OSS deep reasoning) ──────────
     groq_api_key: str
     groq_api_key_2: Optional[str] = None
     groq_api_key_3: Optional[str] = None
     groq_api_key_4: Optional[str] = None
     groq_api_key_5: Optional[str] = None
     
-    # Model Selection - Using Groq's best models
-    model_reasoning_deep: str = "openai/gpt-oss-120b"  # Deep reasoning with high effort
-    model_reasoning_fast: str = "openai/gpt-oss-20b"  # Fast reasoning with medium effort
-    model_compound: str = "groq/compound"  # Built-in web search, browser, code exec
-    model_compound_mini: str = "groq/compound-mini"  # Lightweight compound
-    model_fast: str = "llama-3.1-8b-instant"  # Quick routing (14.4K RPD, 6K TPM)
-    model_analysis: str = "llama-3.3-70b-versatile"  # Market analysis (1K RPD, 12K TPM)
-    model_creative: str = "llama-3.3-70b-versatile"  # Educational content
-    model_router: str = "llama-3.1-8b-instant"  # Fast intent classification
-    model_vision: str = "meta-llama/llama-4-scout-17b-16e-instruct"  # Vision & Multimodal tasks
+    # ── OpenRouter API Keys (primary LLM provider — free models) ─────────
+    openrouter_api_key: Optional[str] = None
+    openrouter_api_key_2: Optional[str] = None
+    openrouter_api_key_3: Optional[str] = None
+    openrouter_api_key_4: Optional[str] = None
+    openrouter_api_key_5: Optional[str] = None
+
+    # ── NVIDIA NIM API Key (DeepSeek-V3.2 + other NIM models) ───────────
+    nvidia_api_key: Optional[str] = None
+    
+    # ── Groq Model Selection (kept for web search + deep reasoning) ──────
+    model_reasoning_deep: str = "openai/gpt-oss-120b"  # Deep reasoning (Groq)
+    model_reasoning_fast: str = "openai/gpt-oss-20b"  # Fast reasoning (Groq)
+    model_compound: str = "groq/compound"  # Web search (Groq only)
+    model_compound_mini: str = "groq/compound-mini"  # Lightweight compound (Groq)
+    model_vision: str = "meta-llama/llama-4-scout-17b-16e-instruct"  # Vision (Groq)
+    
+    # ── OpenRouter Model Selection (primary LLM — all free) ──────────────
+    or_model_deep: str = "arcee-ai/trinity-large-preview:free"     # 400B MoE, 131K ctx, tool calling
+    or_model_fast: str = "arcee-ai/trinity-mini:free"              # Quick greetings, routing
+    or_model_analysis: str = "stepfun/step-3.5-flash:free"         # 196B MoE, 256K ctx, strong tool use
+    or_model_kb_rag: str = "liquid/lfm-2.5-1.2b-thinking:free"    # Reasoning traces, RAG synthesis
+    or_model_router: str = "arcee-ai/trinity-mini:free"            # Fast intent classification
+    or_model_creative: str = "stepfun/step-3.5-flash:free"         # Educational content
+    
+    # Legacy aliases (keep for backward compat)
+    model_fast: str = "llama-3.1-8b-instant"
+    model_analysis: str = "llama-3.3-70b-versatile"
+    model_creative: str = "llama-3.3-70b-versatile"
+    model_router: str = "llama-3.1-8b-instant"
     
     # Groq Reasoning Parameters (for GPT-OSS models)
     reasoning_effort_deep: Literal["low", "medium", "high"] = "high"  # Max reasoning for 120B
@@ -98,8 +121,38 @@ class Settings(BaseSettings):
     google_client_id: Optional[str] = None
     google_client_secret: Optional[str] = None
     
-    # JWT Secret
+    # JWT Secret — REQUIRED, minimum 32 characters
     jwt_secret: str = ""
+
+    # OTP HMAC Secret — used to hash OTP codes before storing in MongoDB.
+    # Must be set in .env for production. Generate with:
+    # python -c "import secrets; print(secrets.token_hex(32))"
+    otp_secret: str = ""
+
+    @field_validator("jwt_secret")
+    @classmethod
+    def validate_jwt_secret(cls, v: str) -> str:
+        """Ensure JWT secret meets minimum security requirements."""
+        if not v:
+            import os
+            if os.environ.get("ENVIRONMENT", "development") == "production":
+                raise ValueError(
+                    "JWT_SECRET is required in production. "
+                    "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+                )
+            # Dev fallback — warn loudly
+            import logging
+            logging.getLogger(__name__).warning(
+                "⚠️  JWT_SECRET not set! Using insecure dev fallback. "
+                "Set JWT_SECRET in your .env (min 32 chars)."
+            )
+            return "dev-insecure-fallback-change-me-in-production-32chars"
+        if len(v.encode()) < 32:
+            raise ValueError(
+                f"JWT_SECRET must be at least 32 characters (got {len(v)}). "
+                "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+            )
+        return v
     
     # Frontend URL (for OAuth redirects)
     frontend_url: str = "http://localhost:3000"
@@ -119,7 +172,10 @@ class Settings(BaseSettings):
     # API Settings - Scaled for high concurrency
     api_timeout_seconds: int = 30
     rate_limit_per_minute: int = 100  # Increased for multiple concurrent users
-    cors_origins: list[str] = ["*"]
+    # CORS origins — set ALLOWED_ORIGINS in .env for production, e.g.:
+    # ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+    # Do NOT use ["*"] in production — it disables credentials-based auth.
+    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:3001"]
     
     # Agent Settings
     default_agent_mode: str = "auto"
@@ -193,6 +249,40 @@ class Settings(BaseSettings):
         if self.groq_api_key_5:
             keys.append(self.groq_api_key_5)
         return keys
+    
+    def get_all_openrouter_keys(self) -> list[str]:
+        """Get all configured OpenRouter API keys for rotation."""
+        keys = []
+        for attr in ["openrouter_api_key", "openrouter_api_key_2",
+                     "openrouter_api_key_3", "openrouter_api_key_4",
+                     "openrouter_api_key_5"]:
+            val = getattr(self, attr, None)
+            if val:
+                keys.append(val)
+        return keys
+    
+    def get_openrouter_model(self, task_type: ModelType) -> str:
+        """Get the best OpenRouter model for a task type."""
+        model_map = {
+            ModelType.REASONING_DEEP: self.or_model_deep,
+            ModelType.REASONING_FAST: self.or_model_analysis,
+            ModelType.FAST: self.or_model_fast,
+            ModelType.ANALYSIS: self.or_model_analysis,
+            ModelType.CREATIVE: self.or_model_creative,
+            ModelType.ROUTER: self.or_model_router,
+            ModelType.KB_RAG: self.or_model_kb_rag,
+        }
+        return model_map.get(task_type, self.or_model_analysis)
+    
+    @property
+    def openrouter_available(self) -> bool:
+        """Whether OpenRouter is configured."""
+        return bool(self.openrouter_api_key)
+
+    @property
+    def nvidia_available(self) -> bool:
+        """Whether NVIDIA NIM is configured."""
+        return bool(self.nvidia_api_key)
 
 
 # Global settings instance

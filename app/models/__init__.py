@@ -5,11 +5,9 @@ from .api_models import ChatRequest, SessionResponse, ConversationHistoryRespons
 from .db_models import (
     ConversationMessage,
     UserSession,
-    MarketDataCache,
     User,
     VerificationToken,
-    TokenBlacklist,
-    OTP
+    TokenBlacklist
 )
 
 __all__ = [
@@ -20,9 +18,7 @@ __all__ = [
     "ConversationHistoryResponse",
     "ConversationMessage",
     "UserSession",
-    "MarketDataCache",
     "User",
     "VerificationToken",
-    "TokenBlacklist",
-    "OTP"
+    "TokenBlacklist"
 ]

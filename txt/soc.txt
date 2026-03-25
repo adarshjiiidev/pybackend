@@ -1,51 +1,101 @@
-# State of Confusion (SOC) - Complete Guide
+# State of Confusion (SOC) on LTP Calculator
+
+## Introduction
+State of Confusion is a concept covered in the LTP Calculator free course. It describes the specific market scenarios where the market moves AGAINST the Chart of Accuracy 1.0. Understanding SOC helps traders know when the usual rules of strong support/resistance will be overridden.
+
+SOC is of three kinds — one hour SOC, two hour SOC, and three hour SOC. In SOC, the market moves against the Chart of Accuracy 1.0.
+
+The game of percentage and the TIME PASSED from when the support or resistance was identified as WTT or WTB play a KEY ROLE in the state of confusion.
 
 ## Definition
-**State of Confusion (SOC)** occurs when the market (Support/Resistance) cannot decide on a clear direction due to conflicting signals or stalled percentage changes.
+State of Confusion (SOC) occurs when WTT or WTB condition persists for a certain time with specific conditions.
+SOC causes the market to move AGAINST the Chart of Accuracy 1.0.
+SOC can NEVER occur in Strong support or resistance — only in WTT or WTB conditions.
 
-**Simple Term:** The "Tug of War" where neither side is winning for a long time.
+---
 
-## SOC Rules by Duration
+## State of Confusion in SUPPORT (makes market BEARISH)
 
-### 1. The 1-Hour Rule (Minor Confusion)
-- **Condition:** Market or Percentage stuck for ~1 hour.
-- **Scenario:** One side is Strong, the other side shows WTB/WTT but the percentage is stuck (e.g., oscillating 3-4%).
-- **Implication:** Market is drifting. It usually moves towards the side of weakness involved.
-- **Action:** Wait for clarity.
+SOC in support always makes the market BEARISH — market falls from EOR to below.
 
-### 2. The 2-Hour Rule (Medium Confusion)
-- **Condition:** Market stuck for ~2 hours.
-- **Scenario:** Percentage stuck with slightly wider variance (7-8%).
-- **Implication:** Confusion is deepening. Market participants are unsure.
-- **Action:** Risky to trade.
+### Condition 1 — ONE HOUR SOC:
+- Support is WTT or WTB
+- Its percentage remains STABLE (fluctuating between 2% to 5%) for MORE THAN ONE HOUR
+- Resistance must be STRONG
+→ Result: SOC in support → market turns BEARISH
 
-### 3. The 3-Hour Rule (Total Confusion)
-- **Condition:** Market stuck for 3+ hours.
-- **Scenario:** Percentage stuck with wide variance (10-12%).
-- **Implication:** High Unpredictability.
-- **Result:** Market becomes purely Range Bound or does a sudden random breakout.
-- **Action:** **NO TRADING ZONE.** Avoid entries.
+### Condition 2 — TWO HOUR SOC:
+- Support is WTT or WTB
+- Its percentage keeps fluctuating between 10% and 15% (but support does NOT shift) for TWO HOURS
+- Resistance must be STRONG
+→ Result: SOC in support → market turns BEARISH
 
-## How to Identify SOC in LTP Calculator?
-1. **Conflicting Pressures:** WTT increasing on one side, WTB increasing on the other (Scenario 8/9 conditions).
-2. **Stalled Shifting:** A level looks like it wants to shift (e.g., 85%) but stays at 85% for hours without completing the shift.
-3. **Both Sides Weak:** Volatility creates confusion.
+### Condition 3 — THREE HOUR SOC:
+- Support has shifted (from top to bottom or bottom to top)
+- In that continuation, new support appears as WTT or WTB
+- Percentage of this new WTT/WTB becomes stable OR keeps fluctuating (not becoming strong) for MORE THAN THREE HOURS
+- Resistance must be STRONG
+→ Result: SOC in support → market turns BEARISH
 
-## SOC vs Consolidation
-- **Consolidation:** Market resting before a move (orderly).
-- **SOC:** Market fighting itself (disorderly/messy).
+### How far does market fall in SOC (Support)?
+- Market FALLS FROM: Extension of Resistance (EOR)
+- Market BOTTOM IS: Diversion of the SMALLEST strike price in the confusion range
+- Example: If support confused between 23800 and 23900 → bottom = diversion of 23800 (smallest)
+- Conclusion: Top = EOR | Bottom = diversion of smallest strike in SOC range
 
-## Trading Strategy in SOC (The "Opposite Side" Rule)
-- **Best Strategy:** Trade from the **Opposite Side** of the confusion.
-- **Logic:**
-  - If Confusion is at **RESISTANCE** (Call side messy):
-    - **Safe Entry:** Buy **CALL** from **SUPPORT** (Bottom).
-    - **Why:** Market won't break Resistance easily, but Support is clear.
-  - If Confusion is at **SUPPORT** (Put side messy):
-    - **Safe Entry:** Buy **PUT** from **RESISTANCE** (Top).
-    - **Why:** Support is messy, so sell from top (Resistance).
+### IMPORTANT NOTES for Support SOC:
+- Time counting starts from when support FIRST became WTT or WTB (shifting process begins)
+- If resistance is also WTT or WTB (not strong), market will NOT fall → no SOC effect
 
-- **Summary:**
-  - **Confusion at Top?** → Buy from Bottom (Call from Support).
-  - **Confusion at Bottom?** → Buy from Top (Put from Resistance).
-  - **Both Confused?** → **NO TRADING**.
+---
+
+## State of Confusion in RESISTANCE (makes market BULLISH)
+
+SOC in resistance always makes the market BULLISH — market rises from EOS to above.
+
+### Condition 1 — ONE HOUR SOC:
+- Resistance is WTT or WTB
+- Its percentage remains STABLE (fluctuating between 2% to 5%) for MORE THAN ONE HOUR
+- Support must be STRONG
+→ Result: SOC in resistance → market turns BULLISH
+
+### Condition 2 — TWO HOUR SOC:
+- Resistance is WTT or WTB
+- Its percentage keeps fluctuating between 10% and 15% (but resistance does NOT shift) for TWO HOURS
+- Support must be STRONG
+→ Result: SOC in resistance → market turns BULLISH
+
+### Condition 3 — THREE HOUR SOC:
+- Resistance has shifted (from top to bottom or bottom to top)
+- In that continuation, new resistance appears as WTT or WTB
+- Percentage of this new WTT/WTB becomes stable OR keeps fluctuating (not becoming strong) for MORE THAN THREE HOURS
+- Support must be STRONG
+→ Result: SOC in resistance → market turns BULLISH
+
+### How far does market rise in SOC (Resistance)?
+- Market RISES FROM: Extension of Support (EOS)
+- Market TOP IS: Diversion of the LARGEST strike price in the confusion range
+- Example: If resistance confused between 23900 and 24000 → top = diversion of 24000 (largest)
+- Conclusion: Bottom = EOS | Top = diversion of largest strike in SOC range
+
+### IMPORTANT NOTES for Resistance SOC:
+- Time counting starts from when resistance FIRST became WTT or WTB
+- If support is also WTT or WTB (not strong), market will NOT fly → no SOC effect
+
+---
+
+## SOC Summary Table
+
+| SOC In     | Market Direction | Starting Point | Target              | Requirement        |
+|------------|-----------------|----------------|---------------------|--------------------|
+| Support    | BEARISH (falls) | EOR            | Diversion of smallest SOC strike | Resistance must be STRONG |
+| Resistance | BULLISH (rises) | EOS            | Diversion of largest SOC strike  | Support must be STRONG    |
+
+## Time Conditions:
+| Condition | % Stability    | Duration  |
+|-----------|----------------|-----------|
+| 1-Hour    | 2% to 5%       | >1 hour   |
+| 2-Hour    | 10% to 15%     | ~2 hours  |
+| 3-Hour    | Stable/varying | >3 hours  |
+
+Note: Time counted from beginning of shifting (when WTT/WTB first appeared).

@@ -1,79 +1,102 @@
-# COA 1.0 - The 9 Scenarios (Chart of Accuracy)
-
-**COA 1.0** defines market range and direction based on the combination of Support and Resistance states.
+# Chart of Accuracy 1.0 (COA 1.0)
 
 ## Key Terms
-- **EOR:** Extension of Resistance (Sell/Put Level)
-- **EOS:** Extension of Support (Buy/Call Level)
-- **WTT:** Weak Towards Top
-- **WTB:** Weak Towards Bottom
+- EOR: Extension of Resistance — clicking volume of resistance strike gives exact reversal price
+- EOS: Extension of Support — clicking volume of support strike gives exact reversal price
+- EOR+1 / EOS+1: ONE STRIKE PRICE ABOVE (towards top, higher strike price)
+- EOR-1 / EOS-1: ONE STRIKE PRICE BELOW (towards bottom, lower strike price)
+- WTT+1 / WTB+1: One strike above the WTT/WTB strike
+- WTT-1 / WTB-1: One strike below the WTT/WTB strike
+- NOTE: The option chain is INVERTED — smaller strike prices are at TOP, larger at BOTTOM
 
-## The 9 Scenarios
+---
 
-### Scenario 1: Both Strong
-- **Support:** Strong
-- **Resistance:** Strong
-- **Trend:** Range Bound
-- **Call Entry:** EOS (Buy)
-- **Put Entry:** EOR (Sell)
-- **Max Range:** EOR to EOS
+## The 9 Scenarios (COA 1.1 to COA 1.9)
 
-### Scenario 2: Resistance Strong, Support WTB
-- **Support:** Weak Towards Bottom
-- **Resistance:** Strong
-- **Trend:** Bearish (Pressure Down)
-- **Call Entry:** Avoid / risky
-- **Put Entry:** EOR (Sell)
-- **Target:** EOR to WTB+1 (or broken support)
+### COA 1.1 — Scenario 1: Both Strong
+- Support: STRONG | Resistance: STRONG
+- Market: RANGE BOUND (ideal scenario)
+- Top: EOR (Extension of Resistance)
+- Bottom: EOS (Extension of Support)
+- Trade: Buy Call at EOS, Sell Call/Buy Put at EOR
+- Note: First hit to any level is generally safe. Risk increases with repeated hits.
 
-### Scenario 3: Resistance Strong, Support WTT
-- **Support:** Weak Towards Top
-- **Resistance:** Strong
-- **Trend:** Bullish (Pressure Up)
-- **Call Entry:** EOS (Buy)
-- **Put Entry:** EOR+1 (Risky) or Avoid
-- **Target:** EOS to EOR+1
+### COA 1.2 — Scenario 2: Support Strong, Resistance WTB
+- Support: STRONG | Resistance: WTB (Weak Towards Bottom)
+- Market: BEARISH — resistance WTB creates bearish pressure on support, support will break down
+- Top: EOR
+- Bottom: EOS-1 (one diversion below support — market reverses from diversion next to support)
+- Meaning: Resistance shifting down = bearish, market expected to fall below support
 
-### Scenario 4: Resistance WTB, Support Strong
-- **Support:** Strong
-- **Resistance:** Weak Towards Bottom
-- **Trend:** Bullish (Resistance weakening down = Bullish? WAIT, RE-VERIFY)
+### COA 1.3 — Scenario 3: Support Strong, Resistance WTT
+- Support: STRONG | Resistance: WTT (Weak Towards Top)
+- Market: BULLISH — resistance WTT means resistance will break out upward
+- Top: WTT-1 (one strike below the WTT strike — market reverses from diversion prior to WTT)
+- Bottom: EOS
+- Meaning: Resistance about to shift up = bullish
 
+### COA 1.4 — Scenario 4: Support WTB, Resistance Strong
+- Support: WTB | Resistance: STRONG
+- Market: BEARISH — support WTB means support will break down
+- Top: EOR
+- Bottom: WTB+1 (one strike above the WTB strike — market reverses from diversion prior to WTB)
+- Meaning: Support shifting down = bearish
 
-### Scenario 5: Resistance WTT, Support Strong (Bullish... usually)
-- **Standard:** Resistance WTT (Bullish) + Support Strong (Neutral) = **BULLISH**.
-- **Nuance (CRITICAL):** If Support became Strong **FROM WTT** (which is Bearish pressure), then:
-  - Resistance (Bullish) vs Support (Bearish) = **CONSOLIDATION / SCENARIO 8**.
-  - **Rule:** Conflicting pressures ALWAYS equal Consolidation.
+### COA 1.5 — Scenario 5: Support WTT, Resistance Strong
+- Support: WTT | Resistance: STRONG
+- Market: BULLISH — support WTT creates bullish pressure on resistance, resistance will break out
+- Top: EOR+1 (one diversion above resistance — market reverses from next diversion to resistance)
+- Bottom: EOS
+- Meaning: Support shifting up = bullish, resistance about to break
 
-### Scenario 8: Bullish Support vs Bearish Resistance (The Expander)
-- **Resistance:** WTT (Weak Toward Top) → Bullish Pressure
-- **Support:** WTB (Weak Toward Bottom) → Bearish Pressure
-- **Conflict:** One side pushing UP, other pushing DOWN (Away from center).
-- **Result:** Market EXPANDS its range. Highly Volatile.
-- **Range:** WTT-1 to WTB+1.
+### COA 1.6 — Scenario 6: Both WTB — BLOOD BATH
+- Support: WTB | Resistance: WTB
+- Market: EXTREME BEARISH — Blood Bath condition
+- Top: EOR
+- Bottom: N/A (No bottom — free fall)
+- NEVER take bullish trades in Blood Bath
+- Double bearish pressure = market can fall without bound
 
-### Scenario 9: Bearish Support vs Bullish Resistance (The Squeeze)
-- **Resistance:** WTB (Weak Toward Bottom) → Bearish Pressure
-- **Support:** WTT (Weak Toward Top) → Bullish Pressure
-- **Conflict:** One side pushing DOWN, other pushing UP (Toward center).
-- **Result:** Market SQUEEZES/CONSOLIDATES.
-- **Range:** EOR+1 to EOS-1.
+### COA 1.7 — Scenario 7: Both WTT — BULL RUN
+- Support: WTT | Resistance: WTT
+- Market: EXTREME BULLISH — Bull Run condition
+- Top: N/A (No top — unlimited upside)
+- Bottom: EOS
+- NEVER take bearish trades in Bull Run
+- Double bullish pressure = market can rise without bound
 
-**General Rule:** If you see Bullish pressure from one side and Bearish from the other, the market is in **Scenario 8 or 9 (Consolidation/Conflict)**. Tread carefully.
+### COA 1.8 — Scenario 8: Support WTB, Resistance WTT
+- Support: WTB | Resistance: WTT
+- Market: NOT TRADABLE (conflicting signals)
+- Condition: Wait until either support or resistance becomes strong
+- This is an expander — both levels pulling in opposite directions
 
-## Simplified Cheatsheet
+### COA 1.9 — Scenario 9: Support WTT, Resistance WTB
+- Support: WTT | Resistance: WTB
+- Market: NOT TRADABLE (conflicting signals)
+- Condition: Wait until either support or resistance becomes strong
+- This is a squeeze — both levels pushing toward center
 
-| Scenario | Support | Resistance | View | Strategy |
-|---|---|---|---|---|
-| **#1** | Strong | Strong | Range | Buy EOS, Sell EOR |
-| **#2** | WTB | Strong | Bearish | Sell EOR (Puts favored) |
-| **#3** | WTT | Strong | Bullish | Buy EOS (Calls favored) |
-| **#4** | Strong | WTB | Bearish | Sell EOR (Puts favored) - *Resistance moving down* |
-| **#5** | Strong | WTT | Bullish | Buy EOS (Calls favored) - *Resistance moving up* |
-| **#6** | WTB | WTB | Blood Bath | Sell on Rise (Aggressive Puts) |
-| **#7** | WTT | WTT | Bull Run | Buy on Dips (Aggressive Calls) |
-| **#8** | WTB | WTT | Expander | Highly Volatile/Expanding |
-| **#9** | WTT | WTB | Squeeze | Tight Range (Consolidation) |
+---
 
-*Note:* Always verify shifting rules first. Shifting dictates the primary trend.
+## Quick Cheatsheet
+
+| Scenario | Support    | Resistance | Market       | Top      | Bottom   |
+|----------|-----------|-----------|--------------|----------|---------|
+| 1 (1.1)  | Strong    | Strong    | Range Bound  | EOR      | EOS     |
+| 2 (1.2)  | Strong    | WTB       | Bearish      | EOR      | EOS-1   |
+| 3 (1.3)  | Strong    | WTT       | Bullish      | WTT-1    | EOS     |
+| 4 (1.4)  | WTB       | Strong    | Bearish      | EOR      | WTB+1   |
+| 5 (1.5)  | WTT       | Strong    | Bullish      | EOR+1    | EOS     |
+| 6 (1.6)  | WTB       | WTB       | Blood Bath   | EOR      | N/A     |
+| 7 (1.7)  | WTT       | WTT       | Bull Run     | N/A      | EOS     |
+| 8 (1.8)  | WTB       | WTT       | Wait/Avoid   | -        | -       |
+| 9 (1.9)  | WTT       | WTB       | Wait/Avoid   | -        | -       |
+
+## DIVERSION RULES (important for finding exact entry levels)
+1. Number of diversions = Number of strike prices between support and resistance + 1
+2. If no strikes between support and resistance = 1 diversion
+3. If support and resistance at same strike price = No diversion (trade extension to extension)
+- Bullish motive: Call side = diversions, Put side = End of Diversions
+- Bearish motive: Put side = diversions, Call side = End of Diversions
+- Click on volume of strike price to get diversion/extension values

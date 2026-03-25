@@ -35,6 +35,8 @@ class AgentState(TypedDict):
     needs_web_search: Optional[bool]  # AI-driven decision for web search
     enable_research_loop: Optional[bool]  # Deep research flag
     has_vision_content: Optional[bool]  # Has images flag
+    is_conversational: Optional[bool]  # True for greetings/small-talk/thanks
+    use_kb: Optional[bool]  # True when KB lookup would help
     
     # Conversation context
     conversation_history: list[dict[str, str]]  # [{role, content}, ...]

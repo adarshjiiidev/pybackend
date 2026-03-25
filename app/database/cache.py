@@ -1,19 +1,22 @@
 """
 High-level market data caching utilities.
-Provides convenience methods for caching market data with TTL management.
+Provides convenience methods for caching market data purely in-memory.
 """
 
-from typing import Optional, Any, Callable, Awaitable
+from typing import Optional, Any, Callable, Awaitable, Dict
+from datetime import datetime, timedelta
 import logging
 
-from .repositories import CacheRepository
 from ..config import settings
 
 logger = logging.getLogger(__name__)
 
 
 class MarketDataCacheManager:
-    """High-level cache manager with automatic cache refresh."""
+    """High-level in-memory cache manager."""
+    
+    # In-memory store: Dict[f"{symbol}:{data_type}", Dict{"data": Any, "expires_at": datetime}]
+    _cache: Dict[str, Dict[str, Any]] = {}
     
     @staticmethod
     async def get_or_fetch(
@@ -35,23 +38,22 @@ class MarketDataCacheManager:
             Market data dictionary
         """
         ttl = ttl_seconds or settings.cache_ttl_seconds
+        cache_key = f"{symbol}:{data_type}"
         
         # Try to get from cache
-        cached_data = await CacheRepository.get_cached_data(symbol, data_type)
-        if cached_data:
-            return cached_data
+        cache_entry = MarketDataCacheManager._cache.get(cache_key)
+        if cache_entry and datetime.utcnow() <= cache_entry["expires_at"]:
+            return cache_entry["data"]
         
-        # Cache miss - fetch fresh data
+        # Cache miss or expired - fetch fresh data
         try:
             fresh_data = await fetch_func()
             
             # Store in cache
-            await CacheRepository.set_cached_data(
-                symbol=symbol,
-                data_type=data_type,
-                data=fresh_data,
-                ttl_seconds=ttl
-            )
+            MarketDataCacheManager._cache[cache_key] = {
+                "data": fresh_data,
+                "expires_at": datetime.utcnow() + timedelta(seconds=ttl)
+            }
             
             return fresh_data
             
@@ -62,9 +64,22 @@ class MarketDataCacheManager:
     @staticmethod
     async def invalidate(symbol: str) -> int:
         """Invalidate all cache entries for a symbol."""
-        return await CacheRepository.invalidate_cache(symbol)
+        keys_to_delete = [
+            k for k in MarketDataCacheManager._cache.keys()
+            if k.startswith(f"{symbol}:")
+        ]
+        for k in keys_to_delete:
+            del MarketDataCacheManager._cache[k]
+        return len(keys_to_delete)
     
     @staticmethod
     async def cleanup_expired() -> int:
         """Clean up all expired cache entries."""
-        return await CacheRepository.clear_expired_cache()
+        now = datetime.utcnow()
+        keys_to_delete = [
+            k for k, v in MarketDataCacheManager._cache.items()
+            if now > v["expires_at"]
+        ]
+        for k in keys_to_delete:
+            del MarketDataCacheManager._cache[k]
+        return len(keys_to_delete)

@@ -1,63 +1,109 @@
-# Game of Percentage & State of Confusion
+# Game of Percentage — WTB and WTT Combined Reference
+# https://howtouseltpcalculator.in/game-of-percentage-in-wtb/
+# https://howtouseltpcalculator.in/game-of-percentage-in-wtt/
 
-## What is Game of Percentage?
+## What is the Yellow Box?
+Yellow box = SECOND-HIGHEST value in Volume or OI column.
+The Yellow Box is the core indicator for WTB and WTT.
+Where the yellow box appears determines if it is WTB or WTT, and at what percentage it is shows how close the shift is.
 
-**Definition:** Tracking the **CHANGE** in percentage of the Second Highest Value (WTB/WTT) over time to predict pressure.
+---
 
-**Why it matters:** 
-Instead of just saying "It is WTB", we ask "Is WTB getting STRONGER or WEAKER?"
+## GAME OF PERCENTAGE — WTB (Weak Towards Bottom)
 
-## The Percentage Rules
+### WTB at SUPPORT (Example: Support=24400, WTB at 24300 = 92.93%)
 
-### 1. WTT Percentage Increasing = BULLISH
-- **Scenario:** Weakness towards TOP is growing (e.g., 75% → 80% → 90%).
-- **Meaning:** Crowd is moving UP.
-- **Pressure:** BULLISH.
+SCENARIO 1: WTB % INCREASING (e.g., 92.93% → 95% → 99%)
+- Support AT 24400 will shift DOWN to 24300
+- Market expected to fall to 24300 (not just reverse at 24400)
+- → BEARISH pressure increasing
+- After shift: Yellow box appears at 24400 = NATURAL WEAKNESS → IGNORE IT
+  (True WTB at 24300 means: market falls further to 24300 level)
 
-### 2. WTT Percentage Decreasing = BEARISH
-- **Scenario:** Weakness towards TOP is shrinking (e.g., 90% → 80% → 75%).
-- **Meaning:** Crowd failed to move UP. Resistance becoming Strong.
-- **Pressure:** BEARISH.
+SCENARIO 2: WTB % DECREASING (e.g., 92.93% → 90% → 85% → 80%)
+- Support at 24400 is becoming STRONGER
+- Market will reverse from EOS of 24400 (not fall to 24300)
+- → BULLISH pressure building (failed bearish attempt)
 
-### 3. WTB Percentage Increasing = BEARISH
-- **Scenario:** Weakness towards BOTTOM is growing (e.g., 75% → 80% → 90%).
-- **Meaning:** Crowd is moving DOWN.
-- **Pressure:** BEARISH.
+SCENARIO 3: WTB % drops to ~75% and YELLOW BOX DISAPPEARS
+- Support is now STRONG
+- → BULLISH pressure confirmed
+- Market may break resistance and reverse from EOR+1
+- (WTB disappearing = bullish pressure on resistance)
 
-### 4. WTB Percentage Decreasing = BULLISH
-- **Scenario:** Weakness towards BOTTOM is shrinking (e.g., 90% → 80% → 75%).
-- **Meaning:** Crowd failed to move DOWN. Support becoming Strong.
-- **Pressure:** BULLISH.
+---
 
-### 5. Stable Percentage = Range Bound
-- **Scenario:** Percentage stays same (e.g., 82% → 82% → 81% → 82%).
-- **Meaning:** No clear winner.
-- **Pressure:** Market stuck in range.
+### WTB at RESISTANCE (Example: Resistance=24500, WTB at 24400 = 83.29%)
 
+SCENARIO 1: WTB % INCREASING (83.29% → 90% → 99%)
+- Resistance AT 24500 will shift DOWN to 24400
+- Market will reverse from 24400 (not 24500 anymore)
+- → BEARISH (resistance moving down = closer to current price)
+- After shift: Yellow box at 24500 = NATURAL WEAKNESS → IGNORE IT
 
+SCENARIO 2: WTB % DECREASING (83.29% → 80% → 78%)
+- Resistance at 24500 becoming STRONGER
+- Market reverses from 24500 (WTB at 24400 losing prominence)
+- → BULLISH (resistance confirming hold at 24500)
 
-## Advanced Scenarios (Pressure Combinations)
+SCENARIO 3: WTB % drops to ~75% and YELLOW BOX DISAPPEARS
+- Resistance is now STRONG → BULLISH pressure
+- Probability of resistance breakout INCREASES
+- Market expected to reverse from EOR+1
 
-### Double Bullish (Bull Run)
-1. **Top Side:** WTT Increasing (Bullish) OR Top Shift
-2. **Bottom Side:** WTB Decreasing (Bullish) OR Top Shift
-- **Result:** Strong UP move.
+---
 
-### Double Bearish (Blood Bath)
-1. **Top Side:** WTT Decreasing (Bearish) OR Bottom Shift
-2. **Bottom Side:** WTB Increasing (Bearish) OR Bottom Shift
-- **Result:** Strong DOWN move.
+## GAME OF PERCENTAGE — WTT (Weak Towards Top)
 
-### Conflicting Pressures (9th Scenario / 8th Scenario)
-- **Support:** Bullish Pressure (e.g., Strong)
-- **Resistance:** Bearish Pressure (e.g., WTT Decreasing)
-- **Result:** Market caught in between (Scenario 8 or 9).
+### WTT at SUPPORT (Example: Support=24300, WTT at 24400 = 93.65%)
 
-## Summary Table
+SCENARIO 1: WTT % INCREASING (93.65% → 95% → 99%)
+- Support at 24300 will shift UP to 24400
+- Market will reverse from 24400 (not 24300) — doesn't fall as far
+- → BULLISH pressure increasing
+- After shift: Yellow box at 24300 = NATURAL WEAKNESS → IGNORE IT
 
-| Weakness Type | Change | Pressure |
-|---|---|---|
-| **WTT (Top)** | Increasing ↑ | **BULLISH** (Going up) |
-| **WTT (Top)** | Decreasing ↓ | **BEARISH** (Failed go up) |
-| **WTB (Bottom)** | Increasing ↑ | **BEARISH** (Going down) |
-| **WTB (Bottom)** | Decreasing ↓ | **BULLISH** (Failed go down) |
+SCENARIO 2: WTT % DECREASING (93.65% → 90% → 84%)
+- Support at 24300 becoming STRONGER
+- Market expected to fall to 24300 (not reverse at 24400)
+- → BEARISH (bullish attempt at support is weakening)
+
+SCENARIO 3: WTT % drops to ~75% and YELLOW BOX DISAPPEARS
+- Support is now STRONG → BEARISH pressure
+- Probability of support breakdown INCREASES
+- Market expected to reverse from EOS-1
+
+---
+
+### WTT at RESISTANCE (Example: Resistance=24100, WTT at 24200 = 87.33%)
+
+SCENARIO 1: WTT % INCREASING (87.33% → 90% → 99%)
+- Resistance at 24100 will shift UP to 24200
+- Market will reverse from 24200 (not 24100) — breakout threshold higher
+- → BULLISH (resistance moving up = harder to reach)
+- After shift: Yellow box at 24100 = NATURAL WEAKNESS → IGNORE IT
+
+SCENARIO 2: WTT % DECREASING (87.33% → 80% → 77%)
+- Resistance at 24100 becoming STRONGER
+- Market reverses from 24100 (will not reach 24200)
+- → BEARISH (resistance strengthening at lower level)
+
+SCENARIO 3: WTT % drops to ~75% and YELLOW BOX DISAPPEARS
+- Resistance is now STRONG → BEARISH pressure
+- Market expected to reverse from EOS-1 (support breakdown risk increases)
+
+---
+
+## MASTER SUMMARY TABLE
+
+| Condition         | Location     | % Increasing | % Decreasing | % Disappears |
+|-------------------|-------------|--------------|--------------|--------------|
+| WTB at Support    | Support side | BEARISH↓     | BULLISH↑     | BULLISH (EOR+1) |
+| WTB at Resistance | Resistance   | BEARISH↓     | BULLISH↑     | BULLISH (EOR+1) |
+| WTT at Support    | Support side | BULLISH↑     | BEARISH↓     | BEARISH (EOS-1) |
+| WTT at Resistance | Resistance   | BULLISH↑     | BEARISH↓     | BEARISH (EOS-1) |
+
+## NATURAL WEAKNESS RULE (ALWAYS IGNORE):
+After any shift occurs, the OLD level shows a yellow box = NATURAL WEAKNESS.
+This is NOT a new WTB/WTT signal. IGNORE IT.
+Only treat it as real if the yellow box first disappears AND then reappears at that same level.

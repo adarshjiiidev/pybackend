@@ -43,17 +43,17 @@ async def make_conversation_public(
     
     if not user:
         raise HTTPException(status_code=401, detail="Authentication required")
-    
+
     # Find the conversation
     conversation = await Conversation.find_one(
         Conversation.conversation_id == conversation_id
     )
-    
+
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    
-    # Verify ownership
-    if conversation.user_id != user.user_id:
+
+    # Verify ownership — str() used on both sides to avoid PydanticObjectId vs str mismatch
+    if str(conversation.user_id) != str(user.user_id):
         raise HTTPException(status_code=403, detail="Not authorized to share this conversation")
     
     # Generate share ID if not already public
@@ -85,17 +85,17 @@ async def make_conversation_private(
     
     if not user:
         raise HTTPException(status_code=401, detail="Authentication required")
-    
+
     # Find the conversation
     conversation = await Conversation.find_one(
         Conversation.conversation_id == conversation_id
     )
-    
+
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    
-    # Verify ownership
-    if conversation.user_id != user.user_id:
+
+    # Verify ownership — str() used on both sides to avoid PydanticObjectId vs str mismatch
+    if str(conversation.user_id) != str(user.user_id):
         raise HTTPException(status_code=403, detail="Not authorized to modify this conversation")
     
     conversation.is_public = False

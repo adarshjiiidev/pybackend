@@ -1,0 +1,82 @@
+# Color Codes on AI LTP Calculator
+
+## Overview
+On the LTP Calculator there are FIVE color codes that appear in the Volume and Open Interest columns on BOTH Call side and Put side. Same colors are used on both sides but with DIFFERENT MEANINGS.
+
+The five color codes:
+1. Pink
+2. Blue
+3. Grey
+4. Green
+5. Yellow
+
+---
+
+## CALL SIDE Color Codes
+
+### PINK (Call Side)
+- Indicates the HIGHEST Open Interest AND the HIGHEST OI Change on the Call side.
+- This is the PRIMARY signal for RESISTANCE identification on the call side.
+
+### BLUE (Call Side)
+- Indicates the HIGHEST VOLUME on the Call side.
+- Blue on either side = highest volume at that strike.
+
+### GREY (Call Side)
+- Indicates the highest Volume OR highest Open Interest that has become ITM (In The Money).
+- When resistance/support shifts into ITM territory, it turns Grey.
+
+### GREEN (Call Side)
+- Indicates the LOWEST Open Interest and LOWEST OI Change on the Call side.
+- Least significant level on the call side.
+
+### YELLOW (Call Side)
+- Indicates the SECOND-HIGHEST value in the respective Volume or Open Interest column.
+- YELLOW = WTB/WTT indicator. When yellow box appears, it means WEAKNESS is present.
+- Yellow box in Volume column OR OI column = support/resistance is trying to shift.
+
+---
+
+## PUT SIDE Color Codes
+
+### PINK (Put Side)
+- Indicates the LOWEST Open Interest and LOWEST OI Change on the Put side.
+- (NOTE: Opposite of call side — Pink on Put side = lowest, not highest)
+
+### BLUE (Put Side)
+- Indicates the HIGHEST VOLUME on the Put side.
+- Same meaning as call side — blue = highest volume.
+
+### GREY (Put Side)
+- Indicates the highest Volume or highest Open Interest that has become ITM on the option chain.
+- Same as call side meaning.
+
+### GREEN (Put Side)
+- Indicates the HIGHEST Open Interest AND the HIGHEST OI Change on the Put side.
+- This is the PRIMARY signal for SUPPORT identification on the put side.
+- (NOTE: Opposite of call side — Green on Put side = highest, whereas on Call side Pink = highest)
+
+### YELLOW (Put Side)
+- Indicates the SECOND-HIGHEST value in the respective Volume or Open Interest column.
+- Same as call side — Yellow = weakness (WTB or WTT) is present.
+
+---
+
+## CRITICAL SUMMARY TABLE
+
+| Color  | Call Side Meaning          | Put Side Meaning           |
+|--------|---------------------------|---------------------------|
+| PINK   | Highest OI + OI Change     | Lowest OI + OI Change      |
+| BLUE   | Highest Volume             | Highest Volume             |
+| GREY   | ITM Highest Vol/OI         | ITM Highest Vol/OI         |
+| GREEN  | Lowest OI + OI Change      | Highest OI + OI Change     |
+| YELLOW | Second Highest (WTB/WTT)   | Second Highest (WTB/WTT)   |
+
+## HOW TO FIND SUPPORT AND RESISTANCE USING COLORS:
+- RESISTANCE (Call side): Look for PINK (highest OI) or BLUE (highest Volume) — whichever is closest to imaginary line
+- SUPPORT (Put side): Look for GREEN (highest OI) or BLUE (highest Volume) — whichever is closest to imaginary line
+- WEAKNESS PRESENT: YELLOW box appears in volume or OI column = WTB or WTT condition
+
+## OI CHANGE TEXT COLORS (in OI Change column):
+- GREEN text = Current OI > last session closing OI = new positions created (long buildup)
+- RED text = Current OI < last session closing OI = writers squared off (unwinding)

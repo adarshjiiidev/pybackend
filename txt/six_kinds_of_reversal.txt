@@ -1,0 +1,82 @@
+# Six Kinds of Reversal Theory
+
+## Overview
+There are SIX levels from which the market can reverse:
+1. Resistance
+2. Extension of Resistance (EOR)
+3. Support
+4. Extension of Support (EOS)
+5. Diversion
+6. End of Diversion
+
+The market does NOT always reverse exactly at Support/Resistance — it often reverses from their EXTENSIONS.
+
+---
+
+## 1. Resistance
+- Highest volume or highest open interest on the CALL side, closest to the imaginary line (starting from ATM pair, moving OTM)
+- Resistance is always found on CALL SIDE
+
+## 2. Extension of Resistance (EOR)
+- The market doesn't reverse exactly at resistance; it extends a few extra points ABOVE resistance
+- This extended level is called EOR
+- How to find EOR: Click on the VOLUME of the resistance strike price on the AI LTP Calculator
+- EOR = precise reversal price above resistance
+
+## 3. Support
+- Highest volume or highest open interest on the PUT side, closest to the imaginary line (starting from ATM pair, moving OTM)
+- Support is always found on PUT SIDE
+
+## 4. Extension of Support (EOS)
+- The market doesn't reverse exactly at support; it extends a few extra points BELOW support
+- This extended level is called EOS
+- How to find EOS: Click on the VOLUME of the support strike price on the AI LTP Calculator
+- EOS = precise reversal price below support
+
+## 5. Diversion
+- The market moves with a MOTIVE: from support to resistance (bullish) OR from resistance to support (bearish)
+- Diversions are HURDLES in the market's path — mini support/resistance that can temporarily divert price
+- Diversions cannot reverse the full trend but cause short-term pullbacks
+- Diversions = levels to BOOK PROFITS on the way to the final target
+
+### Identifying Diversions:
+- If market motive is BULLISH (support → resistance): CALL side strikes between S/R = Diversions; PUT side = End of Diversions
+- If market motive is BEARISH (resistance → support): PUT side strikes between S/R = Diversions; CALL side = End of Diversions
+- Click on VOLUME of the strike to get the Diversion value
+
+## 6. End of Diversion
+- Each Diversion has an "End of Diversion" — the level from where market RESUMES toward its motive (target)
+- At Diversion: book profits
+- At End of Diversion: re-enter in trend direction
+
+---
+
+## Three Rules of Diversion
+
+### Rule 1: Number of Diversions
+Number of diversions = Number of strike prices BETWEEN support and resistance + 1
+
+Example:
+- Support at 17600, Resistance at 17700
+- Strike prices between them: 17650 (just one)
+- Number of diversions = 1 + 1 = 2
+
+### Rule 2: No strikes between S/R → One diversion
+- Support at 550, Resistance at 560
+- No strike between them
+- Number of diversions = 0 + 1 = 1
+
+### Rule 3: S/R at same strike → No diversion
+- Support = Resistance = 41500
+- No difference between strike prices
+- Number of diversions = 0
+- Market trades strictly extension to extension (EOS to EOR)
+
+---
+
+## Summary: Where the Market Reverses (in order of frequency)
+1. Extension of Support (EOS) — most common bullish reversal
+2. Extension of Resistance (EOR) — most common bearish reversal
+3. End of Diversion (support side) — for bearish pullbacks
+4. End of Diversion (resistance side) — for bullish pullbacks
+5. Diversion levels — short-term profit-booking points

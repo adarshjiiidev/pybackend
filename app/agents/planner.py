@@ -11,6 +11,12 @@ from typing import List
 
 from ..config import settings, ModelType
 from ..config.research_config import MAX_RESEARCH_ITERATIONS
+try:
+    from ..config.openrouter_client import get_openrouter_client
+    _HAS_OPENROUTER = True
+except ImportError:
+    _HAS_OPENROUTER = False
+
 from ..config.key_rotator import get_groq_client
 from ..models.research_state import ResearchState, ResearchStep
 
@@ -24,8 +30,18 @@ class PlannerAgent:
     """
     
     def __init__(self):
-        self.client = get_groq_client()
-        self.model = settings.get_model_for_task(ModelType.REASONING_DEEP)
+        # OpenRouter first priority, Groq fallback
+        if _HAS_OPENROUTER and settings.openrouter_available:
+            from ..config.openrouter_client import get_openrouter_client as _get_or
+            self.client = _get_or()
+            self._provider = "openrouter"
+        else:
+            self.client = get_groq_client()
+            self._provider = "groq"
+        if hasattr(self, '_provider') and self._provider == "openrouter":
+            self.model = settings.get_openrouter_model(ModelType.REASONING_DEEP)
+        else:
+            self.model = settings.get_model_for_task(ModelType.REASONING_DEEP)
         self.temperature = 0.4  # Low for structured planning
         self.max_tokens = 2048
     

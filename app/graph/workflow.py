@@ -18,12 +18,14 @@ from ..agents import (
     ExplainerAgent,
     VerifierAgent
 )
+from ..agents.vision_reader import VisionReaderAgent
 from ..config import settings
 
 logger = logging.getLogger(__name__)
 
 
 # Initialize agents
+vision_reader_agent = VisionReaderAgent()
 router_agent = RouterAgent()
 deep_reasoning_agent = DeepReasoningAgent()
 compound_agent = CompoundAgent()
@@ -36,6 +38,15 @@ verifier_agent = VerifierAgent()
 
 
 # Node functions
+async def vision_reader_node(state: AgentState) -> AgentState:
+    """
+    Pre-router vision node.
+    Reads images → extracts NLP scenario → enriches query.
+    Always runs first; is a no-op when no images are present.
+    """
+    return await vision_reader_agent.read_and_enrich(state)
+
+
 async def router_node(state: AgentState) -> AgentState:
     """Router node - classifies intent and selects mode."""
     logger.info("Executing router node")
@@ -139,20 +150,24 @@ def route_to_agent(state: AgentState) -> Literal[
 
 def create_agent_graph() -> StateGraph:
     """
-    Create the LangGraph workflow with GPT-OSS-120B and Compound AI.
-    
+    Create the LangGraph workflow.
+
     Graph structure:
-    START -> router -> [conditional routing] -> 
-      - compound_ai (for real-time queries)
-      - deep_reasoning (for complex analysis)
-      - specialist agents (market_research, realtime, portfolio, explainer, crypto)
-    -> verifier -> END
+    START → vision_reader (no-op if no images) → router → [conditional routing] →
+      - deep_reasoning / compound_ai (research)
+      - realtime_analysis (prices, intraday)
+      - portfolio
+      - explainer (concepts, education)
+    → verifier → END
+
+    Image queries: vision_reader converts image to NLP text, enriches query,
+    then router classifies normally — no special-case image paths.
     """
-    
-    # Initialize graph
+
     workflow = StateGraph(AgentState)
-    
+
     # Add nodes
+    workflow.add_node("vision_reader", vision_reader_node)  # ← new pre-router
     workflow.add_node("router", router_node)
     workflow.add_node("deep_reasoning", deep_reasoning_node)
     workflow.add_node("compound_ai", compound_ai_node)
@@ -160,13 +175,15 @@ def create_agent_graph() -> StateGraph:
     workflow.add_node("realtime_analysis", realtime_node)
     workflow.add_node("portfolio", portfolio_node)
     workflow.add_node("explainer", explainer_node)
-    # REMOVED: crypto node
     workflow.add_node("verifier", verifier_node)
-    
-    # Set entry point
-    workflow.set_entry_point("router")
-    
-    # Add conditional routing from router to agents
+
+    # Entry point: vision_reader first (no-op for text queries)
+    workflow.set_entry_point("vision_reader")
+
+    # vision_reader always flows to router
+    workflow.add_edge("vision_reader", "router")
+
+    # Router conditional routing
     workflow.add_conditional_edges(
         "router",
         route_to_agent,
@@ -179,7 +196,7 @@ def create_agent_graph() -> StateGraph:
             "explainer": "explainer"
         }
     )
-    
+
     # All agent nodes go to verifier
     workflow.add_edge("deep_reasoning", "verifier")
     workflow.add_edge("compound_ai", "verifier")
@@ -187,15 +204,12 @@ def create_agent_graph() -> StateGraph:
     workflow.add_edge("realtime_analysis", "verifier")
     workflow.add_edge("portfolio", "verifier")
     workflow.add_edge("explainer", "verifier")
-    # REMOVED: crypto edge
-    
+
     # Verifier goes to END
     workflow.add_edge("verifier", END)
-    
-    # Compile graph
+
     app = workflow.compile()
-    
-    logger.info("LangGraph workflow created with GPT-OSS-120B and Compound AI")
+    logger.info("LangGraph workflow created with vision_reader pre-router")
     return app
 
 

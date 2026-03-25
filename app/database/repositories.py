@@ -8,7 +8,7 @@ from datetime import datetime
 import uuid
 import logging
 
-from ..models.db_models import ConversationMessage, UserSession, MarketDataCache
+from ..models.db_models import ConversationMessage, UserSession
 
 logger = logging.getLogger(__name__)
 
@@ -107,79 +107,3 @@ class SessionRepository:
         return False
 
 
-class CacheRepository:
-    """Repository for market data cache operations."""
-    
-    @staticmethod
-    async def get_cached_data(
-        symbol: str,
-        data_type: str
-    ) -> Optional[dict[str, Any]]:
-        """Retrieve cached market data if not expired."""
-        cache_entry = await MarketDataCache.find_one(
-            MarketDataCache.symbol == symbol,
-            MarketDataCache.data_type == data_type
-        )
-        
-        if cache_entry and not cache_entry.is_expired():
-            logger.debug(f"Cache HIT for {symbol} ({data_type})")
-            return cache_entry.data
-        
-        if cache_entry:
-            logger.debug(f"Cache EXPIRED for {symbol} ({data_type})")
-            await cache_entry.delete()
-        
-        logger.debug(f"Cache MISS for {symbol} ({data_type})")
-        return None
-    
-    @staticmethod
-    async def set_cached_data(
-        symbol: str,
-        data_type: str,
-        data: dict[str, Any],
-        ttl_seconds: int = 300
-    ) -> MarketDataCache:
-        """Store market data in cache."""
-        # Generate cache key from symbol and data_type
-        cache_key = f"{symbol}:{data_type}"
-        
-        # Delete existing cache entry if present
-        await MarketDataCache.find(
-            MarketDataCache.symbol == symbol,
-            MarketDataCache.data_type == data_type
-        ).delete()
-        
-        # Create new cache entry
-        cache_entry = MarketDataCache(
-            cache_key=cache_key,
-            symbol=symbol,
-            data_type=data_type,
-            data=data,
-            ttl_seconds=ttl_seconds
-        )
-        await cache_entry.insert()
-        logger.debug(f"Cached data for {symbol} ({data_type}) with TTL {ttl_seconds}s")
-        return cache_entry
-    
-    @staticmethod
-    async def invalidate_cache(symbol: str) -> int:
-        """Clear all cached data for a symbol."""
-        result = await MarketDataCache.find(
-            MarketDataCache.symbol == symbol
-        ).delete()
-        logger.info(f"Invalidated cache for {symbol}: {result.deleted_count} entries")
-        return result.deleted_count
-    
-    @staticmethod
-    async def clear_expired_cache() -> int:
-        """Remove all expired cache entries."""
-        all_entries = await MarketDataCache.find_all().to_list()
-        deleted = 0
-        
-        for entry in all_entries:
-            if entry.is_expired():
-                await entry.delete()
-                deleted += 1
-        
-        logger.info(f"Cleared {deleted} expired cache entries")
-        return deleted

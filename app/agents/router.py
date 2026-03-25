@@ -5,13 +5,19 @@ Uses FAST model for quick classification.
 Parallelized: classification + entity extraction run concurrently.
 """
 
-from groq import AsyncGroq
 from typing import Optional, Any
 import logging
 import re
 import asyncio
 
 from ..config import settings, ModelType
+
+try:
+    from ..config.openrouter_client import get_openrouter_client
+    _HAS_OPENROUTER = True
+except ImportError:
+    _HAS_OPENROUTER = False
+
 from ..config.key_rotator import get_groq_client
 from ..models.agent_state import AgentState, AgentMode
 
@@ -22,158 +28,203 @@ class RouterAgent:
     """Routes user queries to appropriate specialized agents using fast model."""
     
     def __init__(self):
-        self.client = get_groq_client()
-        self.model = settings.get_model_for_task(ModelType.ROUTER)
+        # OpenRouter first priority, Groq fallback
+        if _HAS_OPENROUTER and settings.openrouter_available:
+            self.client = get_openrouter_client()
+            self.model = settings.get_openrouter_model(ModelType.ROUTER)
+            self._provider = "openrouter"
+        else:
+            self.client = get_groq_client()
+            self.model = settings.get_model_for_task(ModelType.ROUTER)
+            self._provider = "groq"
         self.temperature = settings.get_temperature_for_task(ModelType.ROUTER)
         self.max_tokens = settings.get_max_tokens_for_task(ModelType.ROUTER)
     
     async def classify_intent(self, state: AgentState) -> AgentState:
         """
-        Classify user intent and select appropriate agent mode.
-        Also extract entities with conversation context awareness.
-        If images are present, set flag for vision processing.
+        Classify user intent using Groq llama-3.1-8b-instant.
+        - Fast (<500ms), cheap, reliable JSON output
+        - Zero hardcoded patterns — the LLM reads intent from meaning, not keywords
+        - If primary parse fails, retries with a simpler prompt
         """
+        import json as _json
+        import re as _re
         query = state["query"]
-        images = state.get("images", [])
         conversation_history = state.get("conversation_history", [])
-        
-        # If images present, mark for vision processing
-        if images:
-            logger.info(f"🖼️ Images detected ({len(images)}), marking for vision processing")
-            state["has_vision_content"] = True
-            # For image queries, prefer explainer mode for better descriptions
-            state["selected_mode"] = AgentMode.EXPLAINER.value
-            state["extracted_entities"] = {}
-            return state
-        
-        # Detect if deep search / research loop should be activated
-        should_research = self._should_trigger_research(query, state)
-        state["enable_research_loop"] = should_research
-        
-        system_prompt = """You are the routing brain of Daddys AI. Your ONLY job is to pick which specialist handles the user's question.
 
-Think step by step like a child learning:
+        # ── Build conversation context ─────────────────────────────────────
+        recent_ctx = ""
+        if conversation_history:
+            recent_ctx = "\n".join(
+                f"{m['role'].upper()}: {str(m.get('content', ''))[:100]}"
+                for m in conversation_history[-3:]
+            )
 
-STEP 1 - READ THE QUERY CAREFULLY
-What is the user actually asking? Is it a question, a request, or a greeting?
+        system_prompt = """You are the intent router for Daddy's AI — an Indian financial assistant.
 
-STEP 2 - ASK YOURSELF THESE QUESTIONS IN ORDER:
+Read the user message and return ONLY this JSON (no markdown, no explanation):
+{"mode": "...", "needs_search": true/false, "use_kb": true/false, "conversational": true/false, "reason": "one line"}
 
-Question A: Is the user asking for a DEFINITION or EXPLANATION of a concept?
-- Examples: "What is RSI?", "Explain PE ratio", "How does options trading work?", "What is WTB?"
-- If YES → respond with: explainer
+MODE RULES — pick exactly one:
+• explainer    → greetings, small talk, how-are-you, thanks, who-are-you (ANY language),
+                 OR explaining a financial concept (what is X, how does X work, teach me X)
+                 → needs_search: false
+• realtime_analysis → wants LIVE/CURRENT data (price today, market now, latest news)
+                 → needs_search: true
+• market_research   → wants deep analysis of a stock/sector (analyze X, research X, compare X)
+                 → needs_search: true
+• portfolio    → personal investment planning (how to invest, build portfolio, SIP advice)
+                 → needs_search: false
+• crypto       → any cryptocurrency topic
+                 → needs_search: true
 
-Question B: Is the user asking about CRYPTOCURRENCY (Bitcoin, Ethereum, crypto, blockchain)?
-- Examples: "Bitcoin price", "ETH analysis", "crypto market"
-- If YES → respond with: crypto
+use_kb RULES:
+• true  → user is asking about a financial concept, term, or strategy where KB would help
+• false → greetings, small talk, self-intro questions, or queries needing fresh live data
 
-Question C: Is the user asking about PORTFOLIO, ALLOCATION, or INVESTMENT STRATEGY?
-- Examples: "How should I allocate 10 lakhs?", "Portfolio for retirement", "Diversification strategy"
-- If YES → respond with: portfolio
+conversational RULES — this is the most important flag:
+• true  → the message is PURE small talk, greeting, thanks, or emotional check-in.
+          Examples: "hi", "hello", "how r u", "thanks", "ok", "good morning", "bye",
+          "what's up", "you there?", "yo", "namaste", "thx", "great", "cool"
+          → The response should be SHORT (1-2 casual sentences), NO research, NO explanation.
+• false → the user actually wants information, analysis, or education.
+          Examples: "what is RSI", "analyze TCS", "explain SIP", "how does Nifty work"
+          → Full educational/analytical response expected.
 
-Question D: Is the user asking about RIGHT NOW, TODAY, or LATEST (real-time data)?
-- Examples: "Latest news on Reliance", "What's happening in market today", "Current price of TCS"
-- If YES → respond with: realtime_analysis
+CRITICAL: For conversational=true messages → mode=explainer, needs_search=false, use_kb=false always."""
 
-Question E: Is the user asking for DEEP ANALYSIS of a company or stock (fundamentals, long-term)?
-- Examples: "Analyze TCS fundamentals", "Reliance company research", "Infosys long-term outlook"
-- If YES → respond with: market_research
-
-Question F: If none of the above fit → default to: market_research
-
-STEP 3 - OUTPUT YOUR ANSWER
-Respond with ONLY the mode name. Nothing else. No JSON. No explanation. Just one word from: market_research, realtime_analysis, portfolio, explainer, crypto"""
+        user_prompt = f"Query: {query}"
+        if recent_ctx:
+            user_prompt = f"Conversation so far:\n{recent_ctx}\n\nNew query: {query}"
 
         try:
-            # --- PARALLEL: run classification + entity extraction concurrently ---
-            classification_coro = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Analyze this query: {query}"},
-                ],
-                temperature=self.temperature,
-                max_tokens=100,
-            )
+            # ── Use Groq for routing (fast, cheap, reliable JSON) ──────────
+            # Falls back to OpenRouter if Groq fails (expired key, rate limit, etc.)
+            from ..config.key_rotator import get_groq_client
+
+            async def _classify_with_messages(client, model):
+                return await client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    temperature=0.0,
+                    max_tokens=120,
+                )
+
+            # Try Groq first
+            try:
+                groq_client = get_groq_client()
+                classification_response = await _classify_with_messages(
+                    groq_client, "llama-3.1-8b-instant"
+                )
+                logger.debug("Router: used Groq llama-3.1-8b-instant")
+            except Exception as groq_err:
+                logger.warning(f"Router Groq failed ({groq_err}), falling back to OpenRouter")
+                classification_response = await _classify_with_messages(
+                    self.client, self.model
+                )
+                logger.debug(f"Router: used OpenRouter fallback ({self.model})")
+
             entity_coro = self._extract_entities_with_context(query, conversation_history)
+            entities = await entity_coro
 
-            classification_response, entities = await asyncio.gather(
-                classification_coro, entity_coro
-            )
-            # --- END PARALLEL ---
+            raw = (classification_response.choices[0].message.content or "").strip()
+            logger.debug(f"Router raw: {raw}")
 
-            result_text = classification_response.choices[0].message.content.strip()
-            
-            # Parse response - now it's just a mode string
-            mode = result_text.lower()
-            
-            # Validate mode
+            # ── Parse JSON robustly ────────────────────────────────────────
+            parsed = None
+            # Try 1: direct parse
+            try:
+                parsed = _json.loads(raw)
+            except Exception:
+                pass
+            # Try 2: strip markdown fences
+            if parsed is None:
+                m = _re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw, _re.DOTALL)
+                if m:
+                    try:
+                        parsed = _json.loads(m.group(1))
+                    except Exception:
+                        pass
+            # Try 3: find first {...} block
+            if parsed is None:
+                m = _re.search(r"\{[^{}]+\}", raw, _re.DOTALL)
+                if m:
+                    try:
+                        parsed = _json.loads(m.group())
+                    except Exception:
+                        pass
+
+            # ── Retry with ultra-simple prompt if still no JSON ────────────
+            if parsed is None:
+                logger.warning(f"Router JSON parse failed (raw={raw[:100]}), retrying with simple prompt")
+                retry_resp = await groq_client.chat.completions.create(
+                    model="llama-3.1-8b-instant",
+                    messages=[
+                        {"role": "system", "content": 'Return ONLY valid JSON: {"mode":"explainer|realtime_analysis|market_research|portfolio|crypto","needs_search":true/false,"reason":"brief"}'},
+                        {"role": "user", "content": f"Classify: {query}"},
+                    ],
+                    temperature=0.0,
+                    max_tokens=80,
+                )
+                retry_raw = (retry_resp.choices[0].message.content or "").strip()
+                try:
+                    parsed = _json.loads(retry_raw)
+                except Exception:
+                    m = _re.search(r"\{[^{}]+\}", retry_raw, _re.DOTALL)
+                    if m:
+                        try:
+                            parsed = _json.loads(m.group())
+                        except Exception:
+                            pass
+
+            # ── Apply decision ─────────────────────────────────────────────
+            if parsed is None:
+                logger.error("Router: all parse attempts failed, defaulting to market_research+search")
+                parsed = {"mode": "market_research", "needs_search": True, "reason": "parse failure fallback"}
+
+            mode_str = str(parsed.get("mode", "market_research")).lower().strip()
+            needs_search = bool(parsed.get("needs_search", True))
+
             valid_modes = {
                 "market_research": AgentMode.MARKET_RESEARCH,
                 "realtime_analysis": AgentMode.REALTIME_ANALYSIS,
                 "portfolio": AgentMode.PORTFOLIO,
                 "explainer": AgentMode.EXPLAINER,
-                "crypto": AgentMode.CRYPTO
+                "crypto": AgentMode.CRYPTO,
             }
-            
-            selected_mode = valid_modes.get(mode, AgentMode.MARKET_RESEARCH)
-            
+            selected_mode = valid_modes.get(mode_str, AgentMode.MARKET_RESEARCH)
+
+            use_kb = bool(parsed.get("use_kb", False))
+            is_conversational = bool(parsed.get("conversational", False))
+
+            # If router says conversational → force needs_search=False, use_kb=False
+            if is_conversational:
+                needs_search = False
+                use_kb = False
+
             state["extracted_entities"] = entities
-            
-            # Check if knowledge base has information about this query
-            try:
-                from ..core.async_data_pool import get_async_data_pool
-                data_pool = get_async_data_pool()
-                
-                if data_pool.has_knowledge_about(query):
-                    available_topics = data_pool.get_available_topics()
-                    
-                    # Check what kind of knowledge exists
-                    query_lower = query.lower()
-                    matched_concepts = [c for c in available_topics["concepts"] if c in query_lower]
-                    matched_symbols = [s for s in available_topics["symbols"] if s.lower() in query_lower]
-                    
-                    if matched_concepts or matched_symbols:
-                        logger.info(f"📚 KB has content on {matched_concepts or matched_symbols} → routing to explainer")
-                        selected_mode = AgentMode.EXPLAINER
-            except ImportError:
-                # Fall back to sync version if async not available
-                try:
-                    from ..core.data_pool import get_data_pool
-                    data_pool = get_data_pool()
-                    
-                    if data_pool.has_knowledge_about(query):
-                        available_topics = data_pool.get_available_topics()
-                        query_lower = query.lower()
-                        matched_concepts = [c for c in available_topics["concepts"] if c in query_lower]
-                        matched_symbols = [s for s in available_topics["symbols"] if s.lower() in query_lower]
-                        
-                        if matched_concepts or matched_symbols:
-                            logger.info(f"📚 KB has content on {matched_concepts or matched_symbols} → routing to explainer")
-                            selected_mode = AgentMode.EXPLAINER
-                except Exception as e:
-                    logger.debug(f"Data pool check skipped: {e}")
-            except Exception as e:
-                logger.debug(f"Data pool check skipped: {e}")
-            
-            # Override mode to explainer if it's a financial term query with no stock symbols
-            from ..tools.financial_terms import is_financial_term
-            if is_financial_term(query) and not entities.get("symbols"):
-                logger.info(f"📚 Detected financial term query")
-                selected_mode = AgentMode.EXPLAINER
-            
             state["selected_mode"] = selected_mode.value
-            
-            logger.info(f"🤖 Router Decision → Mode: {selected_mode.value}, Research: {should_research}, Entities: {entities}")
+            state["enable_research_loop"] = needs_search
+            state["use_kb"] = use_kb
+            state["is_conversational"] = is_conversational
+
+            logger.info(
+                f"🤖 Router → mode={selected_mode.value} | search={needs_search} "
+                f"| use_kb={use_kb} | conversational={is_conversational} "
+                f"| reason={parsed.get('reason', '')} | entities={entities}"
+            )
             return state
-            
+
         except Exception as e:
             logger.error(f"Router classification error: {e}")
             state["selected_mode"] = AgentMode.MARKET_RESEARCH.value
+            state["enable_research_loop"] = True
             state["extracted_entities"] = {}
             return state
-    
-    
+
     async def _extract_entities_with_context(self, query: str, conversation_history: list) -> dict:
         """Extract entities using conversation history for context (resolves pronouns like 'it')."""
         from ..tools.financial_terms import is_financial_term
@@ -237,7 +288,11 @@ Respond with ONLY valid JSON, no other text:
             )
             
             import json
-            entities = json.loads(response.choices[0].message.content)
+            content = response.choices[0].message.content
+            if not content:
+                logger.warning("Entity extraction got None response, returning empty entities")
+                return {"symbols": [], "timeframe": None, "amount": None}
+            entities = json.loads(content)
             
             # Normalize symbols to uppercase and filter out financial terms
             if "symbols" in entities and entities["symbols"]:
@@ -257,42 +312,113 @@ Respond with ONLY valid JSON, no other text:
             # Fallback to regex extraction
             return await self._extract_entities(query)
     
+    def _keyword_fallback(self, query: str) -> str:
+        """Fast keyword-based routing when LLM returns None/empty."""
+        q = query.lower().strip()
+        words = q.split()
+        # Greetings — ONLY short standalone ones (≤3 words)
+        # "hey tell me about X" should NOT be a greeting
+        greet = ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening', 'namaste', 'thanks', 'thank you']
+        if len(words) <= 3 and any(q == g or q.startswith(g + ' ') or q.startswith(g + '!') for g in greet):
+            return "explainer"
+        # Realtime
+        realtime = ['price', 'where is', 'how is', 'today', 'now', 'current', 'live', 'latest', 'nifty', 'sensex', 'market']
+        if any(kw in q for kw in realtime):
+            return "realtime_analysis"
+        # Crypto
+        crypto = ['bitcoin', 'btc', 'ethereum', 'eth', 'crypto', 'solana']
+        if any(kw in q for kw in crypto):
+            return "crypto"
+        # Portfolio
+        portfolio = ['portfolio', 'allocate', 'invest', 'sip', 'mutual fund']
+        if any(kw in q for kw in portfolio):
+            return "portfolio"
+        # Concept explanations
+        explain = ['what is', 'explain', 'how does', 'meaning', 'define']
+        if any(kw in q for kw in explain):
+            return "explainer"
+        return "market_research"
+
     def _should_trigger_research(self, query: str, state: AgentState) -> bool:
         """
-        Detect if autonomous research loop should be triggered.
-        
-        Triggers on:
-        1. Manual enable_deep_search flag
-        2. Complex multi-part questions
-        3. Comparison queries  
-        4. Deep analysis keywords
+        Decide whether live web search / data pre-fetch should be triggered.
+
+        Philosophy: search is CHEAP and FAST. Better to search unnecessarily
+        than to answer a factual question from stale training data.
+
+        Returns True  → meta_reasoning will do a proactive prefetch (search_web + NSE quotes)
+        Returns False → only for pure concept definitions and math (no live data needed)
         """
-        # Check manual flag first
+        # Manual override always wins
         if state.get("enable_deep_search", False):
             return True
-        
+
         query_lower = query.lower()
-        
-        # Complexity indicators
-        complexity_keywords = [
-            "compare", "versus", "vs", "analyze deeply", "research",
-            "comprehensive analysis", "detailed study", "investigate",
-            "which is better", "what are the differences"
+
+        # ── NEVER search: pure greetings, casual conversation, thanks ──────
+        casual_phrases = [
+            "how are you", "how r u", "how r you", "whats up", "what's up",
+            "wassup", "how do you do", "who are you", "what are you",
         ]
-        
-        # Check for keywords
-        has_complexity = any(kw in query_lower for kw in complexity_keywords)
-        
-        # Check for multiple questions (multi-part)
-        question_marks = query.count("?")
-        is_multipart = question_marks > 1
-        
-        # Check query length (longer = more complex)
+        trivial_starters = [
+            "hi", "hello", "hey", "good morning", "good afternoon",
+            "good evening", "good night", "namaste", "hola", "sup", "yo",
+            "thanks", "thank you", "thx", "ty", "appreciate",
+        ]
+        if any(query_lower == p or query_lower.startswith(p + " ") or query_lower.startswith(p + "!") for p in trivial_starters) and len(query.split()) <= 5:
+            return False
+        if any(p in query_lower for p in casual_phrases) and len(query.split()) <= 8:
+            return False
+
+        # ── NEVER search: pure concept definitions & math ──────────────────
+        # These never need live data.
+        no_search_phrases = [
+            "what is", "what are", "define", "meaning of", "explain",
+            "how does", "tell me about", "teach me", "difference between",
+            "what does", "how do i calculate", "formula for",
+        ]
+        # Only skip if the query is PURELY conceptual (short, no stock mention)
+        is_pure_concept = (
+            any(query_lower.startswith(p) or f" {p}" in query_lower for p in no_search_phrases)
+            and len(query.split()) <= 10
+            and not any(kw in query_lower for kw in [
+                "today", "now", "current", "latest", "recent",
+                "price", "stock", "nifty", "sensex", "market", "news",
+            ])
+        )
+        if is_pure_concept:
+            return False
+
+        # ── ALWAYS search: anything with a time/market signal ──────────────
+        live_data_signals = [
+            # time signals
+            "today", "now", "current", "latest", "recent", "this week",
+            "this month", "this year", "2026", "2025", "yesterday",
+            # market signals
+            "price", "stock", "share", "nifty", "sensex", "market",
+            "ipo", "results", "earnings", "quarterly", "annual report",
+            "dividend", "bonus", "split", "merger", "acquisition",
+            "fii", "dii", "open interest", "option chain",
+            # news / events
+            "news", "happened", "penalty", "ban", "sebi", "rbi", "budget",
+            "inflation", "gdp", "rate", "war", "geopolit", "sanction",
+            # analysis keywords
+            "analyze", "analysis", "research", "compare", "versus", "vs",
+            "outlook", "forecast", "prediction", "target", "sector",
+            "performance", "return", "gain", "loss", "rally", "crash",
+            "bull", "bear", "breakout", "support", "resistance",
+        ]
+        if any(kw in query_lower for kw in live_data_signals):
+            return True
+
+        # ── Default: search for longer / complex queries ────────────────────
         word_count = len(query.split())
-        is_long = word_count > 15
-        
-        # Trigger if any indicator is met
-        return has_complexity or is_multipart or is_long
+        question_marks = query.count("?")
+        if word_count > 8 or question_marks > 1:
+            return True
+
+        # Short ambiguous query: search to be safe
+        return True
     
     async def _extract_entities(self, query: str) -> dict[str, Any]:
         """Extract stock symbols, timeframes, and other entities from query."""

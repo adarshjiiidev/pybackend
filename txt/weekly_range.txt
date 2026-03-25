@@ -1,36 +1,86 @@
-# Weekly Range (LTP Calculator Feature)
+# Weekly Range on LTP Calculator
 
-## Definition
-The **Weekly Range** defines the probable boundaries for the market based on option premiums. It helps traders know where the market is likely to stop or reverse.
+## What is Weekly Range?
+Weekly Range = The range within which the market (index) is EXPECTED TO CLOSE on weekly expiry day.
+- Applies ONLY to indices with weekly expiry (e.g., NIFTY 50, BANK NIFTY).
+- Three levels: L1 (risky), L2 (moderate), L3 (safe)
+- Most useful for OPTION WRITERS.
 
-## Key Components
-Three levels of Support and Resistance:
-1. **L1 (Level 1):** 33% Probability of market stopping here.
-2. **L2 (Level 2):** 66% Probability of market stopping here.
-3. **L3 (Level 3):** 99% Probability of market stopping here. (Maximum Range).
+---
 
-## Calculation Method
-The range is calculated using the **Sum of First ITM (In-The-Money)** premiums from both Call and Put sides.
+## How to Calculate Weekly Range
 
-**Reference Time:** 
-- Taken from the **Last Expiry** (usually Tuesday closing).
-- The First ITM Call + First ITM Put sum is recorded.
+### STEP 1: When to capture data
+- On the FIRST trading day of the weekly expiry week
+- At exactly 9:15 AM (market open)
+- Open the option chain for the CURRENT weekly expiry
 
-**Formula:**
-`X = Sum of First ITM Call + First ITM Put (from last expiry)`
+### STEP 2: Note these three values
+1. CMP = Current Market Price (imaginary line)
+2. First OTM LTP on CALL side (first Out-of-The-Money call LTP)
+3. First OTM LTP on PUT side (first Out-of-The-Money put LTP)
 
-**Next Day Projection (Where Market Opens):**
-If market opens at Price `P`:
-- **Resistance L1:** P + (1 * X)
-- **Resistance L2:** P + (2 * X)
-- **Resistance L3:** P + (3 * X)
+Example:
+- CMP = 23432.20
+- First OTM Call LTP = 163.10
+- First OTM Put LTP = 121.05
 
-- **Support L1:** P - (1 * X)
-- **Support L2:** P - (2 * X)
-- **Support L3:** P - (3 * X)
+### STEP 3: Calculate the SUM of OTM LTPs
+SUM = OTM Call LTP + OTM Put LTP = 163.10 + 121.05 = 284.15
+(This SUM value is used for all three range calculations)
 
-## Trading Usage
-- **Buying:** Safe to buy at Support L2 or L3.
-- **Selling:** Safe to sell at Resistance L2 or L3.
-- **L1:** Risky / Minor hurdle.
-- **L3 (99%):** The "Iron Wall". Market rarely crosses this in a normal week.
+---
+
+## L1 Weekly Range (RISKY — market CAN move beyond this)
+FORMULA:
+- L1 Support = CMP − SUM = 23432.20 − 284.15 = 23148.05
+- L1 Resistance = CMP + SUM = 23432.20 + 284.15 = 23716.35
+- Range: ~23148 to ~23716
+
+Meaning: On expiry day, NIFTY may close somewhere between L1 support and L1 resistance.
+Risk: Market CAN move outside L1 range.
+
+## L2 Weekly Range (MODERATE — market generally stays within)
+FORMULA (built from L1):
+- L2 Support = L1 Support − SUM = 23148.05 − 284.15 = 21863.90 (in example uses 22148.05)
+- L2 Resistance = L1 Resistance + SUM = 23716.35 + 284.15 = 24000.50
+- Range: ~21864 to ~24001
+
+Meaning: Market GENERALLY does not move beyond L2. More reliable than L1.
+
+## L3 Weekly Range (SAFE — very low probability of breach)
+FORMULA (built from L2):
+- L3 Support = L2 Support − SUM
+- L3 Resistance = L2 Resistance + SUM
+- Very wide range — highly unlikely to be breached
+
+---
+
+## Option Writing Strategy with Weekly Range
+
+Goal: Sell strike prices OUTSIDE the weekly range for lower-risk premium collection.
+
+### Basic Strategy:
+- Above L1 Resistance → Sell CALL options (those calls will expire worthless)
+- Below L1 Support → Sell PUT options (those puts will expire worthless)
+- Always write in HEDGED positions (sell both sides simultaneously)
+
+### Implementation:
+1. Number strike prices outside the weekly range on each side (1st, 2nd, 3rd...)
+2. Start with 1 lot for 1st strike outside range on each side (hedged pair)
+3. Increase quantity as you go further OTM (based on risk capacity)
+4. Stop-loss for each pair = SUM of Call LTP + Put LTP for that pair
+
+### Level-by-Level:
+- 1st level outside range (e.g., 17650 CE + 17200 PE): 1 lot each, SL = sum of their LTPs
+- 2nd level (17700 CE + 17150 PE): 1 lot each, SL = sum of their LTPs
+- 3rd level (17750 CE + 17100 PE): 1 lot each, SL = sum of their LTPs
+- Strategy: When stop-loss hit on one side → book that side, keep other side (it expires at zero)
+- It is very rare for BOTH sides to hit SL simultaneously
+
+### Risk Levels:
+| Range | Risk Level | Description |
+|-------|-----------|-------------|
+| L1    | RISKY     | Market can breach — for aggressive writers |
+| L2    | MODERATE  | Market generally stays within — safer |
+| L3    | SAFE      | Very low breach probability — most conservative |

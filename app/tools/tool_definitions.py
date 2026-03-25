@@ -300,6 +300,29 @@ FINANCIAL_TOOLS = [
                 "required": ["endpoint", "params"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_index_history",
+            "description": "Fetch historical daily price data for Indian market indices like NIFTY 50, SENSEX, BANKNIFTY, NIFTYIT. Returns an array of daily {time, open, high, low, close, value} bars ready for chart generation. Use this when the user asks to compare, chart, or analyse index performance over time.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "symbols": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Index symbol(s). Use: 'NIFTY50' for Nifty 50, 'SENSEX' for BSE Sensex, 'BANKNIFTY' for Bank Nifty, 'NIFTYIT' for Nifty IT."
+                    },
+                    "days": {
+                        "type": "integer",
+                        "description": "Number of calendar days of history to fetch. Default 90 (3 months).",
+                        "default": 90
+                    }
+                },
+                "required": ["symbols"]
+            }
+        }
     }
 ]
 

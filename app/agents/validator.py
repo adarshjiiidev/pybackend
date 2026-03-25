@@ -9,6 +9,12 @@ import re
 from typing import List, Dict, Any
 
 from ..config import settings, ModelType
+try:
+    from ..config.openrouter_client import get_openrouter_client
+    _HAS_OPENROUTER = True
+except ImportError:
+    _HAS_OPENROUTER = False
+
 from ..config.key_rotator import get_groq_client
 from ..models.agent_state import AgentState
 
@@ -27,8 +33,18 @@ class ValidationAgent:
     """
     
     def __init__(self):
-        self.client = get_groq_client()
-        self.model = settings.get_model_for_task(ModelType.FAST)
+        # OpenRouter first priority, Groq fallback
+        if _HAS_OPENROUTER and settings.openrouter_available:
+            from ..config.openrouter_client import get_openrouter_client as _get_or
+            self.client = _get_or()
+            self._provider = "openrouter"
+        else:
+            self.client = get_groq_client()
+            self._provider = "groq"
+        if hasattr(self, '_provider') and self._provider == "openrouter":
+            self.model = settings.get_openrouter_model(ModelType.FAST)
+        else:
+            self.model = settings.get_model_for_task(ModelType.FAST)
         self.temperature = 0.1
         self.max_tokens = 1000
         

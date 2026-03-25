@@ -1,140 +1,70 @@
-# Support and Resistance - The Sheesh Aasan Concept
+# Support and Resistance on LTP Calculator
 
-## Understanding The LTP Calculator Layout
+## Core Definition (Dr. Vinay Prakash Tiwari's theory)
 
-### The Sheesh Aasan (Headstand) Analogy
+"Starting from the PAIR OF IMAGINARY LINE STRIKE PRICES and moving towards the OTM strike prices,
+the HIGHEST VOLUME or HIGHEST OPEN INTEREST, whichever is CLOSEST TO THE IMAGINARY LINE,
+is called the SUPPORT on the PUT side and RESISTANCE on the CALL side."
 
-**Imagine the market is doing Sheesh Aasan (headstand):**
+Key points:
+- RESISTANCE = Call side (always)
+- SUPPORT = Put side (always)
+- Both VOLUME and OPEN INTEREST matter (unlike most traders who use only OI)
+- The factor closest to the imaginary line wins
 
-```
-HEAD (Top) ← Larger Strike Prices (17700, 17750, 17800...)
-  ↑
-BODY (Middle) ← Current Market Price (Imaginary Line)
-  ↓
-LEGS (Bottom) ← Smaller Strike Prices (17300, 17250, 17200...)
-```
+---
 
-**Why this matters:**
-- In LTP Calculator, counting goes 1, 2, 3, 4... (straight counting)
-- Smaller strike prices (17200, 17250) are at BOTTOM/LEGS
-- Larger strike prices (17700, 17750) are at TOP/HEAD
-- Market stands upside down in option chain!
+## How to Find Support
 
-### The People Pushing Analogy
+Step 1: Identify the pair of imaginary line strike prices (e.g., 23050 and 23100 if CMP is ~23075)
+Step 2: Start from the ATM pair and move TOWARDS OTM on the PUT side (23050 → 23000 → 22950...)
+Step 3: Find the HIGHEST VOLUME (use BLUE color) and HIGHEST OI (use GREEN color on put side)
+Step 4: Whichever is CLOSEST to the imaginary line = SUPPORT
+- If both highest Vol and highest OI are at the same strike → support is of BOTH Volume and OI
+- If highest Vol is closer → support is Volume-based
+- If highest OI is closer → support is OI-based
 
-**Imagine two groups of people pushing:**
+## How to Find Resistance
 
-**RESISTANCE (Call Side - Top/Head):**
-- People pushing market DOWN from head side
-- They want market to go lower
-- More people here = more downward pressure
+Step 1: Identify the pair of imaginary line strike prices
+Step 2: Start from the ATM pair and move TOWARDS OTM on the CALL side (23100 → 23150 → 23200...)
+Step 3: Find the HIGHEST VOLUME (use BLUE color) and HIGHEST OI (use PINK color on call side)
+Step 4: Whichever is CLOSEST to the imaginary line = RESISTANCE
+- If both in same strike → resistance is of BOTH Volume and OI
 
-**SUPPORT (Put Side - Bottom/Legs):**
-- People pushing market UP from leg side  
-- They want market to go higher
-- More people here = more upward pressure
+---
 
-## How It Works
+## Color Quick Reference for Finding S/R:
 
-### Scenario 1: Support is Stronger
-```
-Resistance (Head): 50 people pushing DOWN
-        ↓↓↓
-    Market @ 17500
-        ↑↑↑↑↑
-Support (Legs): 100 people pushing UP
+CALL SIDE (Resistance):
+- PINK = Highest OI (primary resistance OI indicator)
+- BLUE = Highest Volume (primary resistance Volume indicator)
 
-Result: Market goes UP! (More people pushing from bottom)
-```
+PUT SIDE (Support):
+- GREEN = Highest OI (primary support OI indicator)
+- BLUE = Highest Volume (primary support Volume indicator)
 
-**Example:**
-- Support at 17450 has 10 lakh OI
-- Resistance at 17550 has 5 lakh OI
-- Support has MORE people → Market will move TOWARDS RESISTANCE (upward)
+---
 
-### Scenario 2: Resistance is Stronger
-```
-Resistance (Head): 100 people pushing DOWN
-        ↓↓↓↓↓
-    Market @ 17500
-        ↑↑↑
-Support (Legs): 50 people pushing UP
+## About Support and Resistance on Traditional vs LTP Calculator:
 
-Result: Market goes DOWN! (More people pushing from top)
-```
+Traditional method: Based on historical price action (trendlines, previous highs/lows)
+LTP Calculator method: Based on LIVE option chain data (Volume + Open Interest)
+- LTP Calculator is more dynamic — updates in real time
+- Based on actual smart money positions (writers = institutional players)
+- More accurate for intraday Indian markets
 
-**Example:**
-- Resistance at 17550 has 12 lakh OI
-- Support at 17450 has 6 lakh OI
-- Resistance has MORE people → Market will move TOWARDS SUPPORT (downward)
+---
 
-## Support and Resistance - Technical Definition
+## Three Conditions of Support/Resistance
+1. STRONG — Second highest value is below 75% of highest. No yellow box. Stable.
+2. WTT (Weak Towards Top) — Yellow box at HIGHER strike. Trying to shift up.
+3. WTB (Weak Towards Bottom) — Yellow box at LOWER strike. Trying to shift down.
 
-### Support (Put Side - Bottom/Legs)
+---
 
-**Location:** Below current market price (smaller strike prices)  
-**Direction:** Calculated from LARGE strike to SMALL strike moving toward imaginary line  
-**Formula:** Highest OI/Volume nearest to imaginary line on PUT side
-
-**Example:**
-```
-Imaginary Line: 17500
-Put Strikes: 17400 (8L OI), 17450 (12L OI), 17500 (10L OI)
-
-Moving from large to small toward line:
-17500 → 17450 → 17400
-         ↑
-    12 Lakh is closest and highest
-    
-Support = 17450 ✓
-```
-
-### Resistance (Call Side - Top/Head)
-
-**Location:** Above current market price (larger strike prices)  
-**Direction:** Calculated from SMALL strike to LARGE strike moving toward imaginary line  
-**Formula:** Highest OI/Volume nearest to imaginary line on CALL side
-
-**Example:**
-```
-Imaginary Line: 17500
-Call Strikes: 17500 (9L OI), 17550 (15L OI), 17600 (7L OI)
-
-Moving from small to large toward line:
-17500 → 17550 → 17600
-         ↑
-    15 Lakh is closest and highest
-    
-Resistance = 17550 ✓
-```
-
-## The Tug of War
-
-**Think of it like this:**
-
-1. **More people pushing from BOTTOM** = Market goes UP (toward head)
-2. **More people pushing from TOP** = Market goes DOWN (toward legs)
-3. **Equal people both sides** = Market stays in RANGE
-
-**Key Rule:**
-- Market moves TOWARD the weaker side
-- If support is weaker, market goes down to support
-- If resistance is weaker, market goes up to resistance
-- If both are strong, market stays between them
-
-## Important Notes
-
-**OI vs Volume:**
-- Both OI and Volume create support/resistance
-- Always consider whichever is CLOSEST to imaginary line
-- If both at same level, they reinforce each other
-
-**Call Side Rules:**
-- Smaller strikes are IN THE MONEY (inside/ander)
-- Larger strikes are OUT OF THE MONEY (outside/bahar)
-- Count from small to large
-
-**Put Side Rules:**
-- Larger strikes are IN THE MONEY (inside/ander)
-- Smaller strikes are OUT OF THE MONEY (outside/bahar)
-- Count from large to small
+## Open Interest Interpretation:
+- CALL SIDE OI = BEARISH positions (call writers are bearish)
+- PUT SIDE OI = BULLISH positions (put writers are bullish)
+- Increasing OI (green text) = new positions being created
+- Decreasing OI (red text) = writers squaring off (unwinding)

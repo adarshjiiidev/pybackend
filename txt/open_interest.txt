@@ -1,0 +1,70 @@
+# Open Interest on AI LTP Calculator
+
+## What is Open Interest?
+Open Interest (OI) = Total number of OUTSTANDING contracts (long or short) that have NOT been closed or settled.
+- OI increases when new contracts are created
+- OI decreases when positions are closed/squared off
+- Open positions of WRITERS create Open Interest
+
+## Who is captured by OI on each side?
+- CALL SIDE OI = CALL WRITERS = BEARISH players (they profit when market goes DOWN)
+- PUT SIDE OI = PUT WRITERS = BULLISH players (they profit when market goes UP)
+
+Logic:
+- If you BUY a call → you are BULLISH. The person who SOLD it to you is BEARISH.
+- Hence Call writers (sellers) = Bears. Call OI = Bearish positions.
+- If you BUY a put → you are BEARISH. The person who SOLD it to you is BULLISH.
+- Hence Put writers (sellers) = Bulls. Put OI = Bullish positions.
+
+## Key Properties of Open Interest:
+- OI is POSITIONAL data (does not reset daily)
+- Starts from where it was at previous trading session's close
+- Can be minimum ZERO, never negative
+- Increases: new contracts created | Decreases: positions closed by writers
+- OI Change is more useful than raw OI for intraday direction
+
+---
+
+## What is Open Interest Change?
+OI Change = Current OI − Last trading day's closing OI
+- Intraday data — resets to 0 at market open (9:15 AM) every day
+- Can be positive, negative, or zero
+
+### OI Change Text Color on LTP Calculator:
+- GREEN text = OI Change positive = Current OI > last close OI = NEW POSITIONS CREATED
+- RED text = OI Change negative = Current OI < last close OI = WRITERS SQUARING OFF (closing positions)
+
+---
+
+## How Volume and OI Form on Option Chain (step by step)
+
+| Time  | Action                        | OI Change | Volume | OI     |
+|-------|-------------------------------|-----------|--------|--------|
+| 3:30 PM (prev day close) | —             | —         | —      | 83,917 |
+| 9:15 AM (market open)   | No trades yet  | 0         | 0      | 83,917 |
+| 9:30 AM | 83 lots: writers sold, buyers bought | +83   | 83     | 84,000 |
+| 9:45 AM | Writers square off 4,965 lots; buyers trade among themselves | -4,882 | 9,048  | 79,118 |
+| 9:55 AM | More writers square off; no buyer-to-buyer trade | -8,913 | 13,079 | 75,004 |
+| 10:05 AM | Writers create 11,507 new positions | +2,594 | 24,586 | 77,598 |
+
+Volume = Total contracts traded by ANYONE (buyer or writer)
+OI Change = Only contracts created/closed by WRITERS
+
+Insight: When Volume > OI change, buyers are trading among themselves (no new writer positions).
+When Volume = OI change, only writers are active.
+
+---
+
+## PCR (Put-Call Ratio)
+PCR = Total Put OI / Total Call OI
+- PCR > 1: More bullish positions (more put writers = more bulls) → BULLISH bias
+- PCR < 1: More bearish positions (more call writers = more bears) → BEARISH bias
+- PCR = 1: Balanced market
+
+## Open Interest vs Volume (key differences)
+| Feature        | Open Interest              | Volume                      |
+|----------------|---------------------------|-----------------------------|
+| Resets daily?  | NO (positional data)      | YES (intraday data)         |
+| Who creates it?| Writers only              | Anyone (buyers + writers)   |
+| Can be negative?| No (min = 0)             | No (min = 0)                |
+| Used in LTP?   | Yes (with Volume for S/R) | Yes (with OI for S/R)       |

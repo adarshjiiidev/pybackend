@@ -18,10 +18,10 @@ class NSEDataCache:
         # In-memory cache for ultra-fast access
         self._memory_cache: Dict[str, Dict[str, Any]] = {}
         self._cache_ttl = {
-            "quote": 10,  # Stock quotes: 10 seconds
-            "fii_dii": 300,  # FII/DII: 5 minutes
-            "option_chain": 60,  # Option chain: 1 minute
-            "market_status": 30  # Market status: 30 seconds
+            "quote": 0,  # DISABLED — always fetch fresh
+            "fii_dii": 0,  # DISABLED — always fetch fresh
+            "option_chain": 0,  # DISABLED — always fetch fresh
+            "market_status": 0  # DISABLED — always fetch fresh
         }
     
     def _get_cache_key(self, data_type: str, symbol: Optional[str] = None) -> str:

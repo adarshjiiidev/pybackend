@@ -3,11 +3,17 @@ Verifier/Refiner Agent - Quality control and final response polishing.
 Ensures responses are data-grounded, clear, and properly formatted with structured headings.
 """
 
-from groq import AsyncGroq
 import logging
 import re
 
 from ..config import settings, ModelType
+
+try:
+    from ..config.openrouter_client import get_openrouter_client
+    _HAS_OPENROUTER = True
+except ImportError:
+    _HAS_OPENROUTER = False
+
 from ..config.key_rotator import get_groq_client
 from ..models.agent_state import AgentState
 from ..tools import clean_response
@@ -19,10 +25,16 @@ class VerifierAgent:
     """Verifies and enhances agent responses with structured formatting."""
     
     def __init__(self):
-        self.client = get_groq_client()
-        # Use fast model for verification (quick checks)
-        self.model = settings.get_model_for_task(ModelType.FAST)
-        self.temperature = 0.3  # Lower temperature for consistent formatting
+        # OpenRouter first priority, Groq fallback
+        if _HAS_OPENROUTER and settings.openrouter_available:
+            self.client = get_openrouter_client()
+            self.model = settings.get_openrouter_model(ModelType.FAST)
+            self._provider = "openrouter"
+        else:
+            self.client = get_groq_client()
+            self.model = settings.get_model_for_task(ModelType.FAST)
+            self._provider = "groq"
+        self.temperature = 0.3
         self.max_tokens = settings.get_max_tokens_for_task(ModelType.FAST)
     
     async def verify_and_refine(self, state: AgentState) -> AgentState:
@@ -44,6 +56,30 @@ class VerifierAgent:
         # Skip verifier entirely for greetings, casual, and thanks — they don't need formatting
         if metadata.get("skip_verifier"):
             logger.info("⏭️ Skipping verifier for greeting/casual/thanks response")
+            return state
+        
+        # Skip LLM reformatting for data-rich agent responses — the reformatter destroys their data
+        agent_name = metadata.get("agent", "")
+        if agent_name in ("realtime_analysis", "market_research"):
+            logger.info(f"⏭️ Skipping LLM reformatting for {agent_name} — preserving tool data")
+            # Still add reasoning if available, but do NOT reformat the content
+            internal_reasoning = state.get("internal_reasoning")
+            if internal_reasoning and internal_reasoning.strip():
+                reasoning_lines = internal_reasoning.strip().split('\n')
+                formatted_reasoning = []
+                step_num = 1
+                for line in reasoning_lines:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        line = re.sub(r'^\d+[\.)] *', '', line)
+                        formatted_reasoning.append(f"{step_num}. {line}")
+                        step_num += 1
+                reasoning_text = '\n'.join(formatted_reasoning)
+                state["final_response"] = f"<reasoning>{reasoning_text}</reasoning>\n\n{raw_response}"
+            elif raw_response and len(raw_response) > 100:
+                query = state.get("query", "query")
+                synth_reasoning = f"1. Identified query → {agent_name}\n2. Fetched real-time data using tools\n3. Synthesized response from tool results"
+                state["final_response"] = f"<reasoning>{synth_reasoning}</reasoning>\n\n{raw_response}"
             return state
         
         # Only run image analysis when response is missing or generic (agent didn't process images)
@@ -82,46 +118,44 @@ class VerifierAgent:
         reasoning_text = ""
         
         if internal_reasoning and internal_reasoning.strip():
-            # Keep reasoning as numbered steps (this is acceptable for meta info)
-            reasoning_lines = internal_reasoning.strip().split('\n')
-            formatted_reasoning = []
-            step_num = 1
-            for line in reasoning_lines:
-                line = line.strip()
-                if line and not line.startswith('#'):
-                    # Remove existing numbering if any
-                    line = re.sub(r'^\d+[\.)]\s*', '', line)
-                    formatted_reasoning.append(f"{step_num}. {line}")
-                    step_num += 1
-            
-            reasoning_text = '\n'.join(formatted_reasoning)
+            # Show the REAL reasoning from the model verbatim — don't re-number or alter it
+            reasoning_text = internal_reasoning.strip()
         elif raw_response and len(raw_response) > 100:
-            # FORCE REASONING: Generate simple reasoning steps for responses without it
+            # Only synthesize when there is genuinely NO real reasoning at all
             agent = (state.get("execution_metadata") or {}).get("agent", "unknown")
             query = state.get("query", "user query")
-            
-            reasoning_text = f"""
-1. Identified query type and selected {agent} agent
-2. Processed request: {query[:100]}...
-3. Generated comprehensive response with available data
-4. Structured output for clarity
-            """.strip()
-            logger.info("✅ Generated synthetic reasoning for transparency")
+            reasoning_text = f"1. Routed to {agent} agent\n2. Processed: {query[:80]}...\n3. Generated response"
+            logger.info("✅ Generated synthetic reasoning (no real reasoning available)")
 
         
         # Now format the main response with structured headings
         try:
             logger.info(f"Attempting to format response of length: {len(cleaned)}")
             
-            # PERFORMANCE OPTIMIZATION: Skip LLM formatting if response already has structure
-            # Check if response already has markdown headings, bullets, or code blocks
+            # Structure detection variables
             has_headings = "##" in cleaned
-            has_bullets = cleaned.count("-") > 3 or cleaned.count("•") > 3
+            has_tables = "|" in cleaned and "---" in cleaned
+            has_carousel = "carousel" in cleaned
             has_code = "```" in cleaned
-            is_well_formatted = has_headings or (has_bullets and len(cleaned) > 200) or has_code
+            has_emoji = any(e in cleaned for e in ["📈", "📉", "💎", "⚠️", "🎯", "📊", "📌", "💼", "🔴", "🟢", "✅", "❌"])
+            is_short = len(cleaned) < 300
+
+            # Check for bullets/numbered lists — these MUST be reformatted regardless
+            has_bullets = bool(re.search(r'^\s*[-*•●·]\s+', cleaned, re.MULTILINE))
+            has_numbered_list = bool(re.search(r'^\s*\d+[.):]\s+\w', cleaned, re.MULTILINE))
+            needs_reformat = has_bullets or has_numbered_list
+
+            is_well_formatted = (
+                not needs_reformat  # ← bullets/numbered lists always trigger LLM reformat
+                and (
+                    has_headings or has_tables or has_carousel or has_code
+                    or (has_emoji and is_short)
+                    or len(cleaned) < 150
+                )
+            )
             
             if is_well_formatted:
-                logger.info("✅ Response already well-formatted, skipping LLM formatting for speed")
+                logger.info("✅ Response already well-formatted, skipping LLM formatting")
                 formatted_response = cleaned
             else:
                 logger.info("🔄 Applying LLM formatting to improve structure")

@@ -1,49 +1,58 @@
-# LTP Calculator Features
+# Features of AI LTP Calculator
 
-> **Note:** For basic LTP definition and trading context, see `trading_terms.txt`
+## What is AI LTP Calculator?
+India's No. 1 option chain data snapshot tool, created by Dr. Vinay Prakash Tiwari (Founder & CEO, Investing Daddy).
+- Powered by NSE data (paid subscription access)
+- Available at: ltpcalculator.com
 
-## 1. LTP Blast (Intraday)
+---
 
-**Purpose:** Intraday stock selection for quick moves.
-**Columns:**
-- **C1 & C2:** Bullish Triggers
-- **P1 & P2:** Bearish Triggers
-- **Bullish/Bearish Risk:** Shows risk level.
+## Comparison: NSE Official vs Sensibull vs AI LTP Calculator
 
-**Trading Rules:**
-- **Fresh Signal:** If stock hits C1 (Bullish) and hasn't triggered before -> **BUY**.
-- **Average:** If stock hits C1, then dips to C2 -> **ADD/AVERAGE**.
-- **Stop Loss:** Per calculated risk levels.
-- **Already Hit:** If stock already hit C1/C2 earlier -> **AVOID** (Move might be over).
+| Feature                     | NSE Official | Sensibull | AI LTP Calculator |
+|-----------------------------|-------------|-----------|------------------|
+| Data update frequency       | Every 3 min | Live/tick | Live/tick        |
+| Greeks (Delta/Theta/Gamma/Vega) | No       | Yes       | Yes              |
+| Reversal Prices (EOR/EOS)   | No          | NO        | YES (UNIQUE)     |
+| OI Change Chart             | No          | Yes       | Yes              |
+| Highest/2nd highest highlight | No        | No        | YES (UNIQUE)     |
+| Color codes for S/R         | No          | No        | YES (UNIQUE)     |
+| AI market direction signal  | No          | No        | YES (UNIQUE)     |
+| Historical option chain data| No          | Partial   | Yes              |
+| WTB/WTT detection           | No          | No        | YES (UNIQUE)     |
+| Weekly Range (L1/L2/L3)     | No          | No        | YES (UNIQUE)     |
 
-## 2. LTP Swing (Positional)
+---
 
-**Purpose:** Positional trading (Swing trading) based on delivery data and OI.
-**Logic:** Uses "OI to OI" trading method.
-**Analysis Table:**
-- Symbol, Lot Size, Status (Bullish/Bearish)
-- CMP (Current Market Price)
-- Put Highest OI (Support) / Call Highest OI (Resistance)
+## Key Features of AI LTP Calculator
 
-**Selection Rules:**
-- **Bullish Trade:** 
-  1. Support should NOT be WTB.
-  2. Resistance should NOT be WTB.
-  3. Call side ITM premiums > 0 (No zero premiums indicating manipulation).
-  
-- **Bearish Trade:**
-  1. Support should NOT be WTT.
-  2. Resistance should NOT be WTT.
-  3. Put side ITM premiums > 0.
+1. **LTP Blast** — Intraday trading signals (C1/C2 for calls, P1/P2 for puts)
+2. **LTP Swing** — Positional/swing trading levels
+3. **Reversal Prices** — Exact prices for EOR, EOS (found by clicking on volume)
+4. **Arbitrage Stocks** — Identify arbitrage opportunities across indices/stocks
+5. **OI Change Chart** — Visual chart of open interest changes during the day
+6. **Live option chain data** — Real-time tick-by-tick updates
+7. **Live chart with option chain** — Price chart alongside option chain
+8. **Historical option chain data** — Past snapshots for study
+9. **200+ stocks covered** — All NSE F&O eligible stocks and indices
 
-## 3. Arbitrage Stocks (Risk Free)
+---
 
-**Purpose:** 100% Probability Profit (Arbitrage).
-**Method:** Exploiting price difference between **Future** and **Spot** prices.
-**Strategy:**
-1. Sell 1 Lot Future.
-2. Buy equivalent value in Cash (Equity) shares.
-3. Wait for expiry when Future and Spot prices converge.
-4. Profit = The difference captured.
+## Theories Embedded in AI LTP Calculator (by Dr. Vinay Prakash Tiwari)
 
-**Key Requirement:** Requires significant capital but offers low-risk checking account-like returns.
+1. **Six Kinds of Reversal** — Extension of Support/Resistance, Diversions, End of Diversions
+2. **Game of Percentage** — Interprets WTB/WTT % to predict market movement
+3. **Chart of Accuracy 1.0** — 9 scenarios of support + resistance conditions
+4. **Chart of Accuracy 2.0** — 9 scenarios based on OI Change data
+5. **Advance Weekly Range** — L1/L2/L3 weekly range for option writing
+
+---
+
+## Greeks on AI LTP Calculator
+
+Available on the option chain:
+- **Delta (Δ)** — Rate of change of option price with respect to underlying price
+- **Gamma (Γ)** — Rate of change of Delta
+- **Theta (Θ)** — Time decay — how much option value decreases each day
+- **Vega (ν)** — Sensitivity to volatility (IV)
+- **IV (Implied Volatility)** — Market's expectation of future volatility
