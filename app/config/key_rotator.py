@@ -40,7 +40,7 @@ class GroqKeyRotator:
         if not api_keys:
             raise ValueError("At least one API key is required")
 
-        self.api_keys = api_keys
+        self.api_keys = list(api_keys)  # mutable copy
         self.current_index = 0
         # threading.Lock is intentional — see module docstring for rationale.
         self._sync_lock = threading.Lock()
@@ -61,14 +61,10 @@ class GroqKeyRotator:
         """
         with self._sync_lock:
             key = self.api_keys[self.current_index]
-            self.request_counts[key] += 1
+            self.request_counts[key] = self.request_counts.get(key, 0) + 1
             self.current_index = (self.current_index + 1) % len(self.api_keys)
 
-            logger.debug(
-                f"🔄 Using key #{self.current_index} "
-                f"(Total requests on this key: {self.request_counts[key]})"
-            )
-
+            logger.debug(f"🔄 Using key #{self.current_index}")
             return key
 
     def get_client(self) -> AsyncGroq:

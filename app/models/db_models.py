@@ -2,11 +2,10 @@
 Database models using Beanie ODM (async MongoDB ODM for Pydantic).
 """
 
-import hashlib
-import hmac
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, ClassVar, Dict, Optional
+from enum import Enum
+from typing import Any, ClassVar, Dict, List, Optional
 
 from beanie import Document, Indexed
 from pydantic import Field
@@ -174,70 +173,6 @@ class TokenBlacklist(Document):
         ]
 
 
-class OTPRecord(Document):
-    """
-    OTP records stored in MongoDB — multi-worker safe, survives restarts.
-    Replaces the old in-memory dict in OTPService.
-    The code is stored as an HMAC-SHA256 hash so plaintext is never at rest.
-    """
-
-    email: Indexed(str) = Field(..., description="Target email address")
-    purpose: str = Field(
-        ..., description="OTP purpose: registration | login | password_reset"
-    )
-    code_hash: str = Field(..., description="HMAC-SHA256 hash of the OTP code")
-    expires_at: datetime = Field(
-        ..., description="Expiry timestamp (auto-deleted by TTL index)"
-    )
-    attempts: int = Field(
-        default=0, description="Number of failed verification attempts"
-    )
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-    class Settings:
-        name = "otp_records"
-        indexes = [
-            # Compound index for fast lookup by email + purpose (one OTP per purpose at a time)
-            [("email", 1), ("purpose", 1)],
-            # TTL index — MongoDB deletes documents automatically after expires_at
-            # (created in database.py via expireAfterSeconds: 0)
-        ]
-
-    @staticmethod
-    def _get_secret() -> bytes:
-        """Return the HMAC secret from settings, falling back to a loud dev placeholder."""
-        from ..config import settings
-        secret = settings.otp_secret
-        if not secret:
-            import logging, os
-            if os.environ.get("ENVIRONMENT", "development") == "production":
-                raise RuntimeError(
-                    "OTP_SECRET is not set! Cannot hash OTP codes in production. "
-                    "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
-                )
-            logging.getLogger(__name__).warning(
-                "⚠️  OTP_SECRET not set — using insecure dev fallback. Set OTP_SECRET in .env."
-            )
-            secret = "dev-otp-fallback-change-me-in-production"
-        return secret.encode()
-
-    @staticmethod
-    def hash_code(code: str) -> str:
-        """Return HMAC-SHA256 hex digest of the OTP code using the configured secret."""
-        secret = OTPRecord._get_secret()
-        return hmac.new(secret, code.encode(), hashlib.sha256).hexdigest()
-
-    def verify_code(self, code: str) -> bool:
-        """Constant-time comparison to verify a supplied code against stored hash."""
-        secret = OTPRecord._get_secret()
-        expected = hmac.new(secret, code.encode(), hashlib.sha256).hexdigest()
-        return hmac.compare_digest(self.code_hash, expected)
-
-    def is_expired(self) -> bool:
-        """Check if this OTP record has expired."""
-        return datetime.utcnow() > self.expires_at
-
-
 class LoginAttempt(Document):
     """
     Track failed login attempts per email for brute-force protection.
@@ -264,4 +199,110 @@ class LoginAttempt(Document):
             [("email", 1), ("attempt_at", -1)],  # Fast recent-attempt lookup
             # TTL index on attempt_at (expireAfterSeconds = WINDOW_MINUTES * 60)
             # created in database.py
+        ]
+
+
+# ─────────────────────────────────────────────────────────────
+#  Subscription & Payment Models
+# ─────────────────────────────────────────────────────────────
+
+class PlanType(str, Enum):
+    FREE = "free"
+    PRO = "pro"
+    PREMIUM = "premium"
+
+
+class SubscriptionStatus(str, Enum):
+    ACTIVE = "active"
+    EXPIRED = "expired"
+    CANCELLED = "cancelled"
+    PENDING = "pending"
+
+
+class Subscription(Document):
+    """Tracks a user's active/historical subscription plan."""
+
+    user_id: Indexed(str, unique=True) = Field(
+        ..., description="User this subscription belongs to"
+    )
+    plan: PlanType = Field(default=PlanType.FREE, description="Current plan")
+    status: SubscriptionStatus = Field(
+        default=SubscriptionStatus.ACTIVE, description="Subscription status"
+    )
+
+    # Billing period
+    started_at: datetime = Field(default_factory=datetime.utcnow)
+    expires_at: Optional[datetime] = Field(
+        default=None, description="None = lifetime / free plan"
+    )
+    is_yearly: bool = Field(default=False, description="Monthly or yearly billing")
+
+    # Razorpay identifiers
+    razorpay_subscription_id: Optional[str] = Field(default=None)
+    latest_payment_id: Optional[str] = Field(default=None)
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Settings:
+        name = "subscriptions"
+        indexes = ["user_id", "plan", "status", "expires_at"]
+
+    def is_active_plan(self) -> bool:
+        """Return True if subscription is active and not expired."""
+        if self.status != SubscriptionStatus.ACTIVE:
+            return False
+        if self.plan == PlanType.FREE:
+            return True
+        if self.expires_at and datetime.utcnow() > self.expires_at:
+            return False
+        return True
+
+    def days_remaining(self) -> Optional[int]:
+        """Return days remaining in subscription, None if no expiry."""
+        if not self.expires_at:
+            return None
+        delta = self.expires_at - datetime.utcnow()
+        return max(0, delta.days)
+
+
+class PaymentTransaction(Document):
+    """Records every Razorpay payment attempt for audit and idempotency."""
+
+    transaction_id: str = Field(
+        default_factory=lambda: str(uuid.uuid4()),
+        description="Internal transaction UUID",
+    )
+    user_id: Indexed(str) = Field(..., description="Paying user")
+
+    # Plan info
+    plan: PlanType = Field(...)
+    is_yearly: bool = Field(default=False)
+    amount_paise: int = Field(..., description="Amount in paise (INR smallest unit)")
+    currency: str = Field(default="INR")
+
+    # Razorpay identifiers
+    razorpay_order_id: Indexed(str, unique=True) = Field(
+        ..., description="Razorpay order_id"
+    )
+    razorpay_payment_id: Optional[str] = Field(default=None)
+    razorpay_signature: Optional[str] = Field(default=None)
+
+    # Status
+    status: str = Field(
+        default="created",
+        description="created | captured | failed | suspicious",
+    )
+    failure_reason: Optional[str] = Field(default=None)
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Settings:
+        name = "payment_transactions"
+        indexes = [
+            "user_id",
+            "razorpay_order_id",
+            "status",
+            "created_at",
         ]

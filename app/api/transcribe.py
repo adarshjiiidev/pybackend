@@ -7,6 +7,7 @@ import logging
 from fastapi import APIRouter, UploadFile, File, HTTPException, Form
 from typing import Optional
 from groq import Groq
+from starlette.concurrency import run_in_threadpool
 
 from ..config.settings import settings
 
@@ -56,12 +57,13 @@ async def transcribe_audio(
         logger.info(f"Transcribing audio file: {file.filename} ({len(audio_data) / 1024:.2f}KB)")
         
         # Create transcription using Groq Whisper
-        transcription = groq_client.audio.transcriptions.create(
+        transcription = await run_in_threadpool(
+            groq_client.audio.transcriptions.create,
             file=(file.filename, audio_data),
             model="whisper-large-v3-turbo",
             language=language if language else None,  # Auto-detect if not specified
             response_format="json",
-            temperature=0.0
+            temperature=0.0,
         )
         
         logger.info(f"Successfully transcribed audio: {transcription.text[:100]}...")

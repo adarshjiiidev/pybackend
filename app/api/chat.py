@@ -18,11 +18,19 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Dict, List, Optional, Tuple
 
-from app.auth.security import get_current_user, get_optional_user
-from app.graph.workflow import create_agent_graph
+from app.auth.security import (
+    TOKEN_TYPE_ACCESS,
+    TOKEN_TYPE_STREAM,
+    create_stream_token,
+    get_current_user,
+    get_optional_user,
+    verify_token,
+)
+from app.graph.workflow import run_agent_workflow_with_events
 from app.models.agent_state import AgentMode, AgentState
 from app.models.chat_models import Conversation, Message
 from app.models.db_models import User
+from app.utils.fallback_response import resolve_response_or_fallback
 from app.utils.rate_limiter import TokenBucket
 from app.utils.sanitizer import SanitizationError, sanitize_user_message
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -96,17 +104,18 @@ def _check_anon_ip_limit(ip: str) -> bool:
 
 # --- Pydantic models ---
 
-# Max base64 chars per image ≈ 1.5 MB raw (2 MB * 4/3 base64 overhead)
-_MAX_IMAGE_B64_CHARS = 2_000_000
+# Max base64 chars per image — 4 MB covers high-res screenshots (data:image/... prefix included)
+_MAX_IMAGE_B64_CHARS = 4_000_000
 _MAX_IMAGES_PER_REQUEST = 5
 
 
 class SendMessageRequest(BaseModel):
     conversation_id: Optional[str] = None
-    message: str = Field(..., min_length=1, max_length=10000)
+    # message is optional when images are provided (image-only sends are valid)
+    message: str = Field(default="", max_length=10000)
     images: Optional[List[str]] = Field(
         default=None,
-        description=f"Base64-encoded images (max {_MAX_IMAGES_PER_REQUEST}, each ≤ ~1.5 MB)",
+        description=f"Base64-encoded images (max {_MAX_IMAGES_PER_REQUEST}, each ≤ ~3 MB)",
     )
     stream: bool = True
     mode: Optional[str] = Field(
@@ -128,9 +137,17 @@ class SendMessageRequest(BaseModel):
                 raise ValueError(f"Image at index {i} must be a base64 string")
             if len(img) > _MAX_IMAGE_B64_CHARS:
                 raise ValueError(
-                    f"Image at index {i} is too large (max ~1.5 MB per image)"
+                    f"Image at index {i} is too large (max ~3 MB per image)"
                 )
         return v
+
+    def effective_message(self) -> str:
+        """Return message text, substituting a default prompt for image-only sends."""
+        if self.message and self.message.strip():
+            return self.message.strip()
+        if self.images:
+            return "Please analyze the image(s) I've attached."
+        return self.message
 
 
 class MessageResponse(BaseModel):
@@ -230,9 +247,7 @@ async def _run_swarm_workflow(
             session_id=conversation_id,
             mode="swarm",
             conversation_history=conversation_history,
-            on_status=lambda evt: (
-                None
-            ),  # status pushed via queue in _run_swarm_workflow directly
+            on_status=on_status_sync,  # wires swarm phase events → SSE queue
             images=images,
         )
 
@@ -400,13 +415,8 @@ async def _run_ai_workflow(
     Events: status, token, done, title, error
     """
     try:
-        # Push initial status
-        await queue.put(
-            {
-                "event": "status",
-                "data": {"stage": "routing", "message": "Routing your query..."},
-            }
-        )
+        async def emit_status(event: dict):
+            await queue.put({"event": "status", "data": event})
 
         # Build agent state
         state: AgentState = {
@@ -427,15 +437,9 @@ async def _run_ai_workflow(
             "has_vision_content": None,
         }
 
-        # Create and run workflow (compile returns a CompiledGraph with ainvoke)
-        compiled_workflow = create_agent_graph()
-
-        # Push thinking status
-        await queue.put(
-            {"event": "status", "data": {"stage": "thinking", "message": "Thinking..."}}
+        final_state = await run_agent_workflow_with_events(
+            state, emit_status=emit_status
         )
-
-        final_state = await compiled_workflow.ainvoke(state)
 
         if final_state is None:
             await queue.put(
@@ -444,9 +448,9 @@ async def _run_ai_workflow(
             await queue.put(None)  # Signal end
             return
 
-        final_response = (
-            final_state.get("final_response")
-            or "I apologize, but I couldn't generate a response."
+        final_response = resolve_response_or_fallback(
+            final_state=final_state,
+            query=user_message_content,
         )
         selected_mode = final_state.get("selected_mode", "unknown")
 
@@ -697,9 +701,14 @@ async def send_message(
         # Evict stale jobs from previous sessions (lightweight, runs each request)
         _cleanup_stale_jobs()
 
-        # ── Input sanitization ─────────────────────────────────────
+        # ── Resolve effective message (image-only sends get a default prompt) ──────
+        effective_msg = request.effective_message()
+        if not effective_msg.strip() and not request.images:
+            raise HTTPException(status_code=400, detail="Message or image is required")
+
+        # ── Input sanitization ────────────────────────────────────────
         try:
-            clean_message = sanitize_user_message(request.message, field="message")
+            clean_message = sanitize_user_message(effective_msg, field="message")
         except SanitizationError as se:
             logger.warning(
                 f"🚨 Sanitization blocked message from {user_id}: {se.reason}"
@@ -789,9 +798,32 @@ async def send_message(
             }
             for msg in messages[:-1]  # Exclude current message
         ]
-        conversation_history = (
-            raw_history[-20:] if len(raw_history) > 20 else raw_history
-        )
+
+        # ── TurboQuant QJL Memory Compression ─────────────────────────────
+        # For short sessions (<= 5 turns): pass all turns through.
+        # For longer sessions: apply QJL binary Hamming search to retrieve
+        # only the top-5 semantically relevant turns + last 2 for continuity.
+        # Falls back to recency-based last-20 if embedding unavailable.
+        _QJL_THRESHOLD = 5   # only compress when history exceeds this
+        _QJL_TOP_K     = 5   # inject at most this many turns into LLM context
+        if len(raw_history) > _QJL_THRESHOLD:
+            try:
+                from app.database.conversation_memory import get_memory_compressor
+                _compressor = get_memory_compressor()
+                conversation_history = _compressor.retrieve_relevant(
+                    query=request.message,
+                    history=raw_history,
+                    top_k=_QJL_TOP_K,
+                )
+                logger.debug(
+                    f"QJL memory: {len(raw_history)} turns → "
+                    f"{len(conversation_history)} (top-{_QJL_TOP_K} relevant)"
+                )
+            except Exception as _qjl_err:
+                logger.warning(f"QJL compression skipped: {_qjl_err}")
+                conversation_history = raw_history[-20:] if len(raw_history) > 20 else raw_history
+        else:
+            conversation_history = raw_history
 
         # Create event queue, store task handle for lifecycle management
         queue = asyncio.Queue()
@@ -829,9 +861,17 @@ async def send_message(
             )
         _active_tasks[conversation.conversation_id] = task
 
+        stream_token = None
+        if user:
+            stream_token = create_stream_token(
+                user_id=str(user.user_id),
+                conversation_id=conversation.conversation_id,
+            )
+
         # Return immediately — frontend redirects and opens SSE stream
         return {
             "conversation_id": conversation.conversation_id,
+            "stream_token": stream_token,
             "user_message": {
                 "message_id": user_message.message_id,
                 "role": "user",
@@ -858,8 +898,13 @@ async def send_message(
 @router.get("/send/stream/{conversation_id}")
 async def stream_response(
     conversation_id: str,
+    stream_token: Optional[str] = Query(
+        None,
+        description="Short-lived stream token issued by POST /chat/send",
+    ),
     token: Optional[str] = Query(
-        None, description="JWT token for auth (EventSource API cannot set headers)"
+        None,
+        description="Legacy access token fallback. Prefer stream_token.",
     ),
 ):
     """
@@ -867,27 +912,37 @@ async def stream_response(
     Client connects after POST /send returns. Streams events as AI processes.
     Events: status, done, title, error
 
-    Auth: if the conversation belongs to a user, a valid matching JWT must be
-    supplied via ?token= (EventSource API cannot send Authorization headers).
+    Auth: if the conversation belongs to a user, a valid matching short-lived
+    stream token must be supplied. A legacy access-token fallback is supported
+    for backward compatibility.
     """
     # ── Ownership check ───────────────────────────────────────────────
     conversation = await Conversation.find_one(
         Conversation.conversation_id == conversation_id
     )
     if conversation and conversation.user_id:
-        # Owned conversation — require a valid access token matching the owner
-        from app.auth.security import verify_token, TOKEN_TYPE_ACCESS
-        if not token:
+        candidate_token = stream_token or token
+        if not candidate_token:
             raise HTTPException(
                 status_code=401,
                 detail="Authentication required to stream this conversation",
             )
-        payload = verify_token(token)
-        if (
-            not payload
-            or payload.get("token_type") != TOKEN_TYPE_ACCESS
-            or payload.get("sub") != conversation.user_id
-        ):
+
+        payload = verify_token(candidate_token)
+        token_type = payload.get("token_type") if payload else None
+        valid_stream_token = (
+            payload
+            and token_type == TOKEN_TYPE_STREAM
+            and payload.get("sub") == conversation.user_id
+            and payload.get("conversation_id") == conversation_id
+        )
+        valid_legacy_access_token = (
+            payload
+            and token_type == TOKEN_TYPE_ACCESS
+            and payload.get("sub") == conversation.user_id
+        )
+
+        if not (valid_stream_token or valid_legacy_access_token):
             raise HTTPException(
                 status_code=403,
                 detail="Token does not match conversation owner",

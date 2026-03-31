@@ -95,13 +95,48 @@ Volume: {format_large_number(data.get('volume'))}
         return str(data)
 
 
+def sanitize_markdown(text: str) -> str:
+    """
+    Fix common AI markdown formatting issues that cause muted/grey text rendering:
+    1. ● (U+25CF) bullet dots → standard hyphen bullets (- )
+    2. *single asterisk italic* → **bold** (italic renders muted in most chat UIs)
+    3. Strip trailing asterisk labels like "Term*" at end of bullet lines
+    """
+    lines = text.split("\n")
+    fixed_lines = []
+    for line in lines:
+        # Replace ● bullet dots with standard markdown bullets
+        stripped = line.lstrip()
+        indent = line[: len(line) - len(stripped)]
+        if stripped.startswith("●") or stripped.startswith("\u2022") or stripped.startswith("\u00b7"):
+            # Replace bullet character, keep rest of line
+            stripped = "- " + stripped[1:].lstrip()
+            line = indent + stripped
+
+        # Fix *italic* → **bold** but skip **already bold** and ***bold-italic***
+        # Pattern: a single * that is NOT preceded or followed by another *
+        # We do this carefully to avoid breaking existing **bold** spans
+        # Step 1: protect **bold** by replacing them temporarily
+        line = re.sub(r"\*\*\*(.+?)\*\*\*", r"__TRIPLESTAR__\1__TRIPLESTAR__", line)
+        line = re.sub(r"\*\*(.+?)\*\*", r"__DOUBLESTAR__\1__DOUBLESTAR__", line)
+        # Step 2: convert remaining *single* to **bold**
+        line = re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"**\1**", line)
+        # Step 3: restore protected patterns
+        line = line.replace("__TRIPLESTAR__", "***").replace("__DOUBLESTAR__", "**")
+
+        fixed_lines.append(line)
+
+    return "\n".join(fixed_lines)
+
+
 def clean_response(text: str) -> str:
     """
-    Clean agent response by removing internal reasoning markers.
-    
+    Clean agent response by removing internal reasoning markers
+    and sanitizing markdown to prevent muted/grey text rendering.
+
     Args:
         text: Raw agent response
-    
+
     Returns:
         Cleaned response suitable for user display
     """
@@ -109,9 +144,12 @@ def clean_response(text: str) -> str:
     text = re.sub(r'\[REASONING\].*?\[/REASONING\]', '', text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r'\[INTERNAL\].*?\[/INTERNAL\]', '', text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r'\[THOUGHT\].*?\[/THOUGHT\]', '', text, flags=re.DOTALL | re.IGNORECASE)
-    
+
+    # Fix markdown formatting (● bullets, *italic* muted text)
+    text = sanitize_markdown(text)
+
     # Remove extra whitespace
     text = re.sub(r'\n\s*\n\s*\n', '\n\n', text)
     text = text.strip()
-    
+
     return text

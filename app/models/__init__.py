@@ -7,7 +7,11 @@ from .db_models import (
     UserSession,
     User,
     VerificationToken,
-    TokenBlacklist
+    TokenBlacklist,
+    Subscription,
+    PaymentTransaction,
+    PlanType,
+    SubscriptionStatus,
 )
 
 __all__ = [
@@ -20,5 +24,9 @@ __all__ = [
     "UserSession",
     "User",
     "VerificationToken",
-    "TokenBlacklist"
+    "TokenBlacklist",
+    "Subscription",
+    "PaymentTransaction",
+    "PlanType",
+    "SubscriptionStatus",
 ]

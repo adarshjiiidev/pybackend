@@ -263,6 +263,16 @@ class MasterOrchestrator:
         t_start = time.monotonic()
         self._log.info(f"🎯 Orchestrator run [{run_id}]: {query[:100]!r}")
 
+        # ── TurboQuant: Create run-scoped QJL memory bus ───────────────────
+        # One bus per orchestrator run. All 10 parallel agents share it.
+        # Agents call self.tools.memory_bus.query() to get cached findings
+        # BEFORE making expensive API/yfinance calls (saves ~30% calls).
+        from .memory_bus import create_memory_bus
+        from .base_agent import AgentToolbox as _AT
+        _memory_bus = create_memory_bus()
+        _AT.set_memory_bus(_memory_bus)
+        self._log.info(f"[{run_id}] ⚡ TurboQuant MemoryBus initialised")
+
         # ── Create workspace for this run ──────────────────────────────────
         workspace = self._create_workspace(run_id, query, session_id)
 
@@ -415,7 +425,6 @@ class MasterOrchestrator:
                 exc_info=True,
             )
             await _status("error", f"Orchestrator error: {exc}", 0)
-            # Graceful degradation — return a minimal result
             return OrchestratorResult(
                 query=query,
                 final_response=await self._emergency_fallback(query, str(exc)),
@@ -424,6 +433,17 @@ class MasterOrchestrator:
                 total_duration_s=time.monotonic() - t_start,
                 metadata={"run_id": run_id, "error": str(exc)},
             )
+
+        finally:
+            # ── TurboQuant: tear down the run-scoped memory bus ────────────
+            try:
+                await _memory_bus.clear()
+                from .base_agent import AgentToolbox as _TB2
+                _TB2.clear_memory_bus()
+                self._log.debug(f"[{run_id}] ⚡ TurboQuant MemoryBus cleared")
+            except Exception:
+                pass
+
 
     # -----------------------------------------------------------------------
     # STEP 02: Planning — LLM decides which agents to spawn
@@ -958,8 +978,8 @@ Produce a JSON execution plan. Output ONLY valid JSON, no markdown, no extra tex
                     else:
                         completed.add(task.task_id)
 
-                    # Write findings to workspace
-                    if r.get("data"):
+                    # Write findings to workspace AND TurboQuant memory bus
+                    if r.get("data") or r.get("summary"):
                         workspace.write_finding(
                             agent_id=task.task_id,
                             agent_type=task.agent_type,
@@ -968,6 +988,29 @@ Produce a JSON execution plan. Output ONLY valid JSON, no markdown, no extra tex
                             signal=r.get("signal", "neutral"),
                             confidence=float(r.get("confidence", 0.5) or 0.5),
                         )
+                        # ── TurboQuant: also store in QJL memory bus ───────────────
+                        # Other agents can query this BEFORE making API calls.
+                        # Key format: "{agent_type}_{task_id}" for dedup.
+                        try:
+                            from .base_agent import AgentToolbox as _TB
+                            _bus = _TB._memory_bus
+                            if _bus is not None:
+                                summary_text = r.get("summary", "") or ""
+                                if summary_text:
+                                    _sym = task.payload.get("symbol", "")
+                                    _tags = [task.agent_type] + (_sym.split() if _sym else [])
+                                    asyncio.ensure_future(_bus.store(
+                                        key=f"{task.agent_type}_{task.task_id}",
+                                        content=summary_text,
+                                        agent_id=task.task_id,
+                                        agent_type=task.agent_type,
+                                        tags=_tags,
+                                        signal=r.get("signal"),
+                                        confidence=float(r.get("confidence", 0.5) or 0.5),
+                                    ))
+                        except Exception as _bus_err:
+                            self._log.debug(f"MemoryBus store skipped: {_bus_err}")
+
 
             await status_cb(
                 self.PHASE_COLLECTING,

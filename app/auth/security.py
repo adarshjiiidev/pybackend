@@ -37,10 +37,12 @@ SECRET_KEY: str = settings.jwt_secret
 ALGORITHM: str = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+STREAM_TOKEN_EXPIRE_MINUTES: int = 5
 
 # Token type constants — stored inside the JWT payload as "token_type"
 TOKEN_TYPE_ACCESS: str = "access"
 TOKEN_TYPE_REFRESH: str = "refresh"
+TOKEN_TYPE_STREAM: str = "stream"
 
 # HTTP Bearer scheme
 security = HTTPBearer()
@@ -145,6 +147,32 @@ def create_refresh_token(
             "token_type": TOKEN_TYPE_REFRESH,  # ← type claim
         }
     )
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def create_stream_token(
+    *,
+    user_id: str,
+    conversation_id: str,
+    expires_delta: Optional[timedelta] = None,
+) -> str:
+    """
+    Create a short-lived JWT dedicated to SSE streaming for one conversation.
+
+    This avoids putting a general-purpose access token into the EventSource URL.
+    """
+    expire = datetime.utcnow() + (
+        expires_delta
+        if expires_delta
+        else timedelta(minutes=STREAM_TOKEN_EXPIRE_MINUTES)
+    )
+    to_encode = {
+        "sub": user_id,
+        "conversation_id": conversation_id,
+        "exp": expire,
+        "jti": str(uuid.uuid4()),
+        "token_type": TOKEN_TYPE_STREAM,
+    }
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 

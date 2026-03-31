@@ -39,6 +39,72 @@ class RouterAgent:
             self._provider = "groq"
         self.temperature = settings.get_temperature_for_task(ModelType.ROUTER)
         self.max_tokens = settings.get_max_tokens_for_task(ModelType.ROUTER)
+
+    def _looks_conversational(self, query: str) -> bool:
+        """Heuristic guardrail — returns True ONLY for pure greetings/small-talk."""
+        if not query:
+            return True
+
+        q = query.strip().lower()
+        if not q:
+            return True
+
+        q_norm = re.sub(r"[^a-z0-9\s]", " ", q)
+        q_norm = re.sub(r"\s+", " ", q_norm).strip()
+        q_soft = re.sub(r"(.)\1{2,}", r"\1\1", q_norm)
+        tokens = q_soft.split()
+
+        # Any finance or LTP Calculator term → definitely NOT conversational
+        finance_markers = {
+            # General finance
+            "stock", "market", "price", "nifty", "sensex", "rsi", "macd",
+            "portfolio", "sip", "mutual", "crypto", "bitcoin", "analysis",
+            "analyze", "research", "news", "invest", "trading", "option",
+            "call", "put", "strike", "expiry", "oi", "volume", "index",
+            # Common finance acronyms — always financial context on this platform
+            "pcr", "vix", "iv", "pe", "pb", "eps", "roce", "roe", "cmp",
+            "atr", "obv", "adx", "sma", "ema", "dma", "fii", "dii",
+            "sebi", "nse", "bse", "f&o", "futures", "derivative", "hedge",
+            "theta", "delta", "gamma", "vega", "rho", "greek", "premium",
+            "straddle", "strangle", "condor", "butterfly", "spread",
+            # LTP Calculator specific terms — MUST always go to KB
+            "wtb", "wtt", "soc", "eos", "eor", "coa", "ltp",
+            "support", "resistance", "pressure", "shifting", "diversion",
+            "strong", "weak", "bullish", "bearish", "yellow", "box",
+            "percentage", "imaginary", "scenario", "reversal", "confusion",
+            "natural", "weakness", "constraint", "weekly", "range",
+        }
+        if any(t in finance_markers for t in tokens):
+            return False
+
+        # Also check substring matches for short acronyms that won't tokenize cleanly
+        ltp_substrings = ["wtb", "wtt", "soc", "eos", "eor", "ltp", "pcr", "vix"]
+        if any(sub in q for sub in ltp_substrings):
+            return False
+
+        quick_phrases = {
+            "hi", "hii", "hiii", "hello", "hey", "yo", "sup", "namaste",
+            "thanks", "thank you", "thx", "ok", "okay", "cool", "bye", "gn",
+            "good morning", "good afternoon", "good evening",
+            "how are you", "how r u", "what's up", "whats up", "you there",
+        }
+        if q_soft in quick_phrases:
+            return True
+
+        joined = q_soft.replace(" ", "")
+        if len(tokens) <= 3:
+            if re.fullmatch(r"h(?:e|a)?l+o+", joined):
+                return True
+            if re.fullmatch(r"h+i+", joined):
+                return True
+            if re.fullmatch(r"h+e+y+", joined):
+                return True
+
+        # Only mark as conversational if it's very short AND matches no finance pattern
+        if len(tokens) <= 2 and len(q_soft) <= 10:
+            return True
+
+        return False
     
     async def classify_intent(self, state: AgentState) -> AgentState:
         """
@@ -52,6 +118,7 @@ class RouterAgent:
         query = state["query"]
         conversation_history = state.get("conversation_history", [])
 
+
         # ── Build conversation context ─────────────────────────────────────
         recent_ctx = ""
         if conversation_history:
@@ -62,36 +129,118 @@ class RouterAgent:
 
         system_prompt = """You are the intent router for Daddy's AI — an Indian financial assistant.
 
-Read the user message and return ONLY this JSON (no markdown, no explanation):
+Return ONLY this JSON (no markdown, no explanation):
 {"mode": "...", "needs_search": true/false, "use_kb": true/false, "conversational": true/false, "reason": "one line"}
 
-MODE RULES — pick exactly one:
-• explainer    → greetings, small talk, how-are-you, thanks, who-are-you (ANY language),
-                 OR explaining a financial concept (what is X, how does X work, teach me X)
-                 → needs_search: false
-• realtime_analysis → wants LIVE/CURRENT data (price today, market now, latest news)
-                 → needs_search: true
-• market_research   → wants deep analysis of a stock/sector (analyze X, research X, compare X)
-                 → needs_search: true
-• portfolio    → personal investment planning (how to invest, build portfolio, SIP advice)
-                 → needs_search: false
-• crypto       → any cryptocurrency topic
-                 → needs_search: true
+═══════════════════════════════════════════════════════════════════
+  RULE 1 — KB TERMS  →  mode=explainer, use_kb=true, needs_search=false
+═══════════════════════════════════════════════════════════════════
+If the query is about ANY of these InvestingDaddy / LTP Calculator concepts,
+ALWAYS use mode=explainer + use_kb=true. These are stored in our knowledge base.
 
-use_kb RULES:
-• true  → user is asking about a financial concept, term, or strategy where KB would help
-• false → greetings, small talk, self-intro questions, or queries needing fresh live data
+  LTP Calculator concepts:
+    WTB, WTT, weak towards bottom, weak towards top,
+    SOC, state of confusion, 1-hour SOC, 2-hour SOC, 3-hour SOC,
+    COA, chart of accuracy, COA 1.0, COA 1.1–1.9, COA 2.0,
+    EOR, EOS, extension of resistance, extension of support,
+    EOR+1, EOS+1, EOR-1, EOS-1,
+    diversion, end of diversion,
+    imaginary line, ATM pair, sheesh aasan,
+    weekly range, advance weekly range, L1 range, L2 range, L3 range,
+    game of percentage, 75% rule,
+    yellow box, natural weakness, shifting pressure, shift top, shift bottom,
+    blood bath, bull run,
+    six kinds of reversal, reversal theory,
+    strong support, strong resistance, WTB to strong, WTT to strong,
+    color codes (pink/blue/grey/green/yellow on option chain),
+    LTP Blast, LTP Swing, 9:20 AM strategy, magical lines,
+    max pain, max gain, reversal price, arbitrage stock,
+    Vinay Sir, Vinay Prakash Tiwari, InvestingDaddy, Daddy's International School,
+    Adarsh developer, Who made Daddy's AI
 
-conversational RULES — this is the most important flag:
-• true  → the message is PURE small talk, greeting, thanks, or emotional check-in.
-          Examples: "hi", "hello", "how r u", "thanks", "ok", "good morning", "bye",
-          "what's up", "you there?", "yo", "namaste", "thx", "great", "cool"
-          → The response should be SHORT (1-2 casual sentences), NO research, NO explanation.
-• false → the user actually wants information, analysis, or education.
-          Examples: "what is RSI", "analyze TCS", "explain SIP", "how does Nifty work"
-          → Full educational/analytical response expected.
+  General finance education (explain HOW something works):
+    How does RSI work, what is MACD, explain Bollinger Bands,
+    what is PCR, what is open interest, what is OI change,
+    what is put-call ratio, what is P/E ratio, what is EPS,
+    what are option greeks, delta gamma theta vega,
+    iron condor, straddle, strangle, butterfly spread,
+    candlestick patterns, fibonacci retracement, golden cross, death cross,
+    long buildup, short buildup, call writers, put writers,
+    demat account, STCG, LTCG, CNC, MIS, bracket order, cover order
 
-CRITICAL: For conversational=true messages → mode=explainer, needs_search=false, use_kb=false always."""
+  SIGNAL: query starts with "what is", "what are", "explain", "how does",
+           "how do", "teach me", "define", "tell me about" + any finance term
+
+═══════════════════════════════════════════════════════════════════
+  RULE 2 — LIVE MARKET DATA  →  mode=realtime_analysis, needs_search=true
+═══════════════════════════════════════════════════════════════════
+If the user wants CURRENT/LIVE numbers, prices, or market status right now:
+
+  Keywords that signal live data need:
+    today, now, current, live, latest, right now, this moment,
+    is up, is down, how much, at what level, where is, how is
+
+  Market entities:
+    Nifty, Bank Nifty, BankNifty, Sensex, Fin Nifty, MidCap Nifty,
+    SGX Nifty, GIFT Nifty, Dow Jones, Nasdaq, S&P 500,
+    FII data, DII data, market open, market close, market status,
+    futures price, option premium (live), PCR today, VIX today
+
+  Examples → realtime_analysis:
+    "where is nifty today", "current bank nifty level",
+    "nifty live", "how is sensex doing", "sgx nifty",
+    "fii data today", "market status", "gift nifty now"
+
+═══════════════════════════════════════════════════════════════════
+  RULE 3 — DEEP STOCK RESEARCH  →  mode=market_research, needs_search=true
+═══════════════════════════════════════════════════════════════════
+  Keywords: analyze, analyse, research, should I buy, is it good to buy,
+            fundamental analysis of, technical analysis of, compare stocks,
+            sector report, earnings, quarterly results, revenue, profit,
+            ROCE, ROE, debt, promoter holding
+
+  Examples → market_research:
+    "analyze TCS", "should I buy Reliance", "compare HDFC and ICICI",
+    "fundamental analysis of Infosys", "research Nifty IT stocks"
+
+═══════════════════════════════════════════════════════════════════
+  RULE 4 — PORTFOLIO / SIP  →  mode=portfolio, needs_search=false
+═══════════════════════════════════════════════════════════════════
+  Keywords: my portfolio, portfolio advice, SIP, asset allocation,
+            how much to invest, risk appetite, diversification advice
+
+═══════════════════════════════════════════════════════════════════
+  RULE 5 — CRYPTO  →  mode=crypto, needs_search=true
+═══════════════════════════════════════════════════════════════════
+  Keywords: bitcoin, ethereum, crypto, BTC, ETH, altcoin, DeFi, NFT, Web3
+
+═══════════════════════════════════════════════════════════════════
+  RULE 5.5 — CURRENT EVENTS / GEOPOLITICS → mode=market_research, needs_search=true
+═══════════════════════════════════════════════════════════════════
+  ANY query asking about real-world events and their market/economic impact:
+    war, conflict, sanctions, geopolitics, inflation, recession, fed rate,
+    oil crisis, government policy, budget, RBI policy, election market impact,
+    "effect on market", "impact on economy", "what will happen to stocks"
+  → mode=market_research, needs_search=true, use_kb=false
+
+  Examples → market_research:
+    "tell about war and its effect on market"
+    "how does US Fed rate hike affect India"
+    "Russia Ukraine war market impact"
+    "effect of inflation on stocks"
+    "budget 2025 impact on market"
+
+═══════════════════════════════════════════════════════════════════
+  RULE 6 — OFF-TOPIC / UNKNOWN  →  mode=explainer, conversational=true
+═══════════════════════════════════════════════════════════════════
+  If the query has NOTHING to do with finance, trading, or markets
+  (IPL, movies, weather, food, travel) — politely redirect.
+  → mode=explainer, conversational=true, needs_search=false, use_kb=false
+
+NOTE: conversational=true is ONLY for pure greetings/small talk with zero
+information need. QuickReplyAgent already handles most greetings before
+the router runs, so you'll rarely see them — but set conversational=true
+if one slips through."""
 
         user_prompt = f"Query: {query}"
         if recent_ctx:
@@ -114,6 +263,7 @@ CRITICAL: For conversational=true messages → mode=explainer, needs_search=fals
                 )
 
             # Try Groq first
+            groq_client = None
             try:
                 groq_client = get_groq_client()
                 classification_response = await _classify_with_messages(
@@ -122,8 +272,9 @@ CRITICAL: For conversational=true messages → mode=explainer, needs_search=fals
                 logger.debug("Router: used Groq llama-3.1-8b-instant")
             except Exception as groq_err:
                 logger.warning(f"Router Groq failed ({groq_err}), falling back to OpenRouter")
+                or_client = get_openrouter_client() if (_HAS_OPENROUTER and settings.openrouter_available) else self.client
                 classification_response = await _classify_with_messages(
-                    self.client, self.model
+                    or_client, self.model
                 )
                 logger.debug(f"Router: used OpenRouter fallback ({self.model})")
 
@@ -159,31 +310,101 @@ CRITICAL: For conversational=true messages → mode=explainer, needs_search=fals
 
             # ── Retry with ultra-simple prompt if still no JSON ────────────
             if parsed is None:
-                logger.warning(f"Router JSON parse failed (raw={raw[:100]}), retrying with simple prompt")
-                retry_resp = await groq_client.chat.completions.create(
-                    model="llama-3.1-8b-instant",
-                    messages=[
-                        {"role": "system", "content": 'Return ONLY valid JSON: {"mode":"explainer|realtime_analysis|market_research|portfolio|crypto","needs_search":true/false,"reason":"brief"}'},
-                        {"role": "user", "content": f"Classify: {query}"},
-                    ],
-                    temperature=0.0,
-                    max_tokens=80,
-                )
-                retry_raw = (retry_resp.choices[0].message.content or "").strip()
+                logger.warning(f"Router JSON parse failed (raw={raw[:100]!r}), retrying with OpenRouter")
                 try:
-                    parsed = _json.loads(retry_raw)
-                except Exception:
-                    m = _re.search(r"\{[^{}]+\}", retry_raw, _re.DOTALL)
-                    if m:
-                        try:
-                            parsed = _json.loads(m.group())
-                        except Exception:
-                            pass
+                    or_client_retry = get_openrouter_client() if (_HAS_OPENROUTER and settings.openrouter_available) else self.client
+                    retry_resp = await or_client_retry.chat.completions.create(
+                        model=self.model,
+                        messages=[
+                            {"role": "system", "content": 'Return ONLY valid JSON: {"mode":"explainer|realtime_analysis|market_research|portfolio|crypto","needs_search":true/false,"use_kb":true/false,"conversational":true/false,"reason":"brief"}'},
+                            {"role": "user", "content": f"Classify: {query}"},
+                        ],
+                        temperature=0.0,
+                        max_tokens=100,
+                    )
+                    retry_raw = (retry_resp.choices[0].message.content or "").strip()
+                    try:
+                        parsed = _json.loads(retry_raw)
+                    except Exception:
+                        m = _re.search(r"\{[^{}]+\}", retry_raw, _re.DOTALL)
+                        if m:
+                            try:
+                                parsed = _json.loads(m.group())
+                            except Exception:
+                                pass
+                except Exception as retry_err:
+                    logger.error(f"Router retry also failed: {retry_err}")
 
-            # ── Apply decision ─────────────────────────────────────────────
+            # ── Smart fallback if all parse attempts failed ────────────────
             if parsed is None:
-                logger.error("Router: all parse attempts failed, defaulting to market_research+search")
-                parsed = {"mode": "market_research", "needs_search": True, "reason": "parse failure fallback"}
+                q_lower = query.lower().strip()
+                if self._looks_conversational(query):
+                    logger.warning("Router fallback: conversational query detected -> explainer no-search")
+                    parsed = {
+                        "mode": "explainer",
+                        "needs_search": False,
+                        "use_kb": False,
+                        "conversational": True,
+                        "reason": "parse failure - conversational fallback",
+                    }
+                # Educational/concept queries → explainer + KB, not web search
+                elif any(q_lower.startswith(p) for p in (
+                    "what is", "what are", "what does", "what",
+                    "explain", "how does", "how do", "teach me",
+                    "define", "meaning of", "tell me about",
+                )):
+                    logger.warning("Router fallback: educational query detected → explainer+kb")
+                    parsed = {"mode": "explainer", "needs_search": False, "use_kb": True, "conversational": False, "reason": "parse failure - educational fallback"}
+                else:
+                    logger.error("Router: all parse attempts failed, defaulting to market_research+search")
+                    parsed = {"mode": "market_research", "needs_search": True, "use_kb": False, "conversational": False, "reason": "parse failure fallback"}
+
+            if not isinstance(parsed, dict):
+                parsed = {}
+
+            # Some models return partial/invalid JSON like "{}" or wrong keys.
+            # Normalize that to deterministic fallback behavior.
+            if not parsed.get("mode"):
+                q_lower = query.lower().strip()
+                if self._looks_conversational(query):
+                    parsed = {
+                        "mode": "explainer",
+                        "needs_search": False,
+                        "use_kb": False,
+                        "conversational": True,
+                        "reason": "missing mode - conversational fallback",
+                    }
+                elif any(q_lower.startswith(p) for p in (
+                    "what is", "what are", "what does", "what",
+                    "explain", "how does", "how do", "teach me",
+                    "define", "meaning of", "tell me about",
+                )):
+                    parsed = {
+                        "mode": "explainer",
+                        "needs_search": False,
+                        "use_kb": True,
+                        "conversational": False,
+                        "reason": "missing mode - educational fallback",
+                    }
+                else:
+                    parsed = {
+                        "mode": "market_research",
+                        "needs_search": True,
+                        "use_kb": False,
+                        "conversational": False,
+                        "reason": "missing mode - research fallback",
+                    }
+
+            # Final safety override: very short casual inputs should never trigger deep research.
+            q_words = query.strip().split()
+            if self._looks_conversational(query) and len(q_words) <= 3:
+                parsed = {
+                    "mode": "explainer",
+                    "needs_search": False,
+                    "use_kb": False,
+                    "conversational": True,
+                    "reason": "conversational safety override",
+                }
 
             mode_str = str(parsed.get("mode", "market_research")).lower().strip()
             needs_search = bool(parsed.get("needs_search", True))
@@ -199,6 +420,18 @@ CRITICAL: For conversational=true messages → mode=explainer, needs_search=fals
 
             use_kb = bool(parsed.get("use_kb", False))
             is_conversational = bool(parsed.get("conversational", False))
+
+            # ── CRITICAL OVERRIDE: heuristic finance-term detection beats LLM ──
+            # If _looks_conversational() returned False (finance/LTP term detected),
+            # the LLM cannot mark it as conversational=True + use_kb=False.
+            # "what is pcr", "what is wtb" etc. must ALWAYS go through KB.
+            if is_conversational and not self._looks_conversational(query):
+                logger.info(
+                    f"🔧 Finance-term override: LLM said conversational=True "
+                    f"but heuristic detected finance term → forcing use_kb=True, conversational=False"
+                )
+                is_conversational = False
+                use_kb = True
 
             # If router says conversational → force needs_search=False, use_kb=False
             if is_conversational:
@@ -220,8 +453,14 @@ CRITICAL: For conversational=true messages → mode=explainer, needs_search=fals
 
         except Exception as e:
             logger.error(f"Router classification error: {e}")
-            state["selected_mode"] = AgentMode.MARKET_RESEARCH.value
-            state["enable_research_loop"] = True
+            if self._looks_conversational(state.get("query", "")):
+                state["selected_mode"] = AgentMode.EXPLAINER.value
+                state["enable_research_loop"] = False
+                state["use_kb"] = False
+                state["is_conversational"] = True
+            else:
+                state["selected_mode"] = AgentMode.MARKET_RESEARCH.value
+                state["enable_research_loop"] = True
             state["extracted_entities"] = {}
             return state
 

@@ -3,6 +3,8 @@ Financial terms and acronyms that should NOT be treated as stock symbols.
 These are knowledge base terms that require explainer/educational responses.
 """
 
+import re
+
 # Financial Terms - Common acronyms and phrases in finance
 FINANCIAL_TERMS = {
     # Portfolio & Investment Terms
@@ -211,6 +213,7 @@ def is_financial_term(text: str) -> bool:
         True if it's a known financial term, False otherwise
     """
     text_upper = text.upper().strip()
+    text_lower = text.lower().strip()
     
     # Check typo aliases first (e.g., "LPT" -> "LTP")
     if text_upper in TYPO_ALIASES:
@@ -220,18 +223,35 @@ def is_financial_term(text: str) -> bool:
     if text_upper in FINANCIAL_TERMS:
         return True
     
-    # Check if query contains contextual terms + a financial term
-    text_lower = text.lower()
-    for context in CONTEXT_TERMS:
-        if context in text_lower:
-            # Extract potential term after context word
-            for term in FINANCIAL_TERMS:
-                if term.lower() in text_lower:
+    # Query-level detection with strict word boundaries to avoid false positives
+    # like matching "CO" inside "cowork".
+    tokens = re.findall(r"[a-z0-9/+-]+", text_lower)
+    token_set = set(tokens)
+    has_context = any(context in text_lower for context in CONTEXT_TERMS)
+    if has_context:
+        for term in FINANCIAL_TERMS:
+            term_lower = term.lower()
+            # Short abbreviations (<=2) are too noisy inside natural words.
+            # Handle them only via exact query/direct match paths above.
+            if len(term_lower) <= 2:
+                continue
+            if " " in term_lower or "/" in term_lower or "-" in term_lower:
+                pattern = rf"(?<![a-z0-9]){re.escape(term_lower)}(?![a-z0-9])"
+                if re.search(pattern, text_lower):
                     return True
-            # Also check typo aliases
-            for typo in TYPO_ALIASES:
-                if typo.lower() in text_lower:
+            elif term_lower in token_set:
+                return True
+
+        for typo in TYPO_ALIASES:
+            typo_lower = typo.lower()
+            if len(typo_lower) <= 2:
+                continue
+            if " " in typo_lower or "/" in typo_lower or "-" in typo_lower:
+                pattern = rf"(?<![a-z0-9]){re.escape(typo_lower)}(?![a-z0-9])"
+                if re.search(pattern, text_lower):
                     return True
+            elif typo_lower in token_set:
+                return True
     
     return False
 

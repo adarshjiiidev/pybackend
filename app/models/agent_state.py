@@ -44,6 +44,12 @@ class AgentState(TypedDict):
     # Tool results
     tool_results: Optional[dict[str, Any]]  # Market data, calculations, etc.
     
+    # KB context — pre-fetched async after routing, consumed by explainer
+    kb_context: Optional[str]  # Raw text from Qdrant KB search
+
+    # Web context — pre-fetched async after routing, consumed by all agents
+    web_context: Optional[str]  # Raw text from web search (MCP/OpenRouter)
+
     # Agent reasoning (internal, not shown to user)
     internal_reasoning: Optional[str]
     

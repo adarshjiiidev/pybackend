@@ -11,17 +11,8 @@ from beanie import init_beanie
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
 from ..models.chat_models import Conversation, Message
-from ..models.db_models import (
-    LoginAttempt,
-    OTPRecord,
-    TokenBlacklist,
-    User,
-    VerificationToken,
-)
+from ..models.db_models import LoginAttempt, TokenBlacklist, User, VerificationToken, Subscription, PaymentTransaction
 from ..models.knowledge_cache import KnowledgeSearchCache
-# NOTE: data_pipeline models are imported lazily inside connect() to avoid
-# circular imports (data_pool.py imports from config.database)
-
 from .settings import settings
 
 logger = logging.getLogger(__name__)
@@ -45,14 +36,11 @@ class Database:
                 minPoolSize=settings.mongodb_min_pool_size,
                 serverSelectionTimeoutMS=5000,
             )
-
             cls.db = cls.client[settings.mongodb_db_name]
 
-            # Migration: Update existing users with null user_id before initializing indexes
+            # Best-effort migration for legacy users missing user_id.
             try:
                 users_collection = cls.db["users"]
-
-                # Find users with null or missing user_id
                 users_without_id = await users_collection.find(
                     {"$or": [{"user_id": None}, {"user_id": {"$exists": False}}]}
                 ).to_list(length=None)
@@ -61,24 +49,19 @@ class Database:
                     logger.info(
                         f"Found {len(users_without_id)} users without user_id. Migrating..."
                     )
-
-                    # Update each user with a new UUID
                     for user in users_without_id:
-                        new_user_id = str(uuid.uuid4())
                         await users_collection.update_one(
-                            {"_id": user["_id"]}, {"$set": {"user_id": new_user_id}}
+                            {"_id": user["_id"]},
+                            {"$set": {"user_id": str(uuid.uuid4())}},
                         )
-
                     logger.info(f"Successfully migrated {len(users_without_id)} users")
             except Exception as migration_error:
                 logger.warning(f"Migration warning: {migration_error}")
-                # Continue anyway - this is just a best-effort migration
 
             # Lazy import to avoid circular dependency:
-            # data_pool.py imports config.database, so we can't import at module level
+            # data_pool.py imports config.database.
             from ..data_pipeline.data_pool import FundamentalsCache, OHLCVBar, SymbolMeta
 
-            # Initialize Beanie with document models
             await init_beanie(
                 database=cls.db,
                 document_models=[
@@ -86,50 +69,39 @@ class Database:
                     User,
                     VerificationToken,
                     TokenBlacklist,
-                    OTPRecord,
                     LoginAttempt,
                     # Chat models
                     Conversation,
                     Message,
                     # Cache models
-                    KnowledgeSearchCache,  # Permanent KB search cache
-                    # Data pipeline models — MUST be here for Beanie field descriptors to work
+                    KnowledgeSearchCache,
+                    # Data pipeline models
                     OHLCVBar,
                     SymbolMeta,
                     FundamentalsCache,
+                    # Payment models
+                    Subscription,
+                    PaymentTransaction,
                 ],
             )
 
             logger.info("MongoDB connection established successfully")
 
-            # ── Performance indexes (idempotent, conflict-safe) ────────────────
             db = cls.db
-            _otp_window_secs = (
-                OTPRecord.__fields__
-            )  # just import to resolve; actual value below
-            _otp_ttl = 10 * 60  # OTP expires after 10 minutes (matches OTPService)
-            _attempt_ttl = LoginAttempt.WINDOW_MINUTES * 60  # auto-purge after window
+            _attempt_ttl = LoginAttempt.WINDOW_MINUTES * 60
 
             indexes = [
-                # (collection, index_spec, kwargs)
-                # ── Users ──────────────────────────────────────────────────────
+                # Users
                 ("users", [("email", 1)], {"unique": True, "background": True}),
                 ("users", [("user_id", 1)], {"unique": True, "background": True}),
-                # ── JWT blacklist (TTL auto-deletes expired entries) ───────────
+                # JWT blacklist
                 ("token_blacklist", [("jti", 1)], {"background": True}),
                 (
                     "token_blacklist",
                     [("expires_at", 1)],
                     {"expireAfterSeconds": 0, "background": True},
                 ),
-                # ── OTP records (TTL auto-deletes after expiry) ───────────────
-                ("otp_records", [("email", 1), ("purpose", 1)], {"background": True}),
-                (
-                    "otp_records",
-                    [("expires_at", 1)],
-                    {"expireAfterSeconds": 0, "background": True},
-                ),
-                # ── Login attempts (TTL auto-purges after sliding window) ──────
+                # Login attempts (TTL for brute-force window)
                 (
                     "login_attempts",
                     [("email", 1), ("attempt_at", -1)],
@@ -140,13 +112,12 @@ class Database:
                     [("attempt_at", 1)],
                     {"expireAfterSeconds": _attempt_ttl, "background": True},
                 ),
-                # ── Conversations & messages ───────────────────────────────────
+                # Conversations and messages
                 (
                     "conversations",
                     [("user_id", 1), ("updated_at", -1)],
                     {"background": True},
                 ),
-                # Anon conversation TTL — auto-delete after 7 days if no user_id
                 (
                     "conversations",
                     [("created_at", 1)],
@@ -161,16 +132,31 @@ class Database:
                     [("conversation_id", 1), ("created_at", 1)],
                     {"background": True},
                 ),
+                # Subscriptions
+                ("subscriptions", [("user_id", 1)], {"unique": True, "background": True}),
+                ("subscriptions", [("status", 1), ("expires_at", 1)], {"background": True}),
+                # Payment transactions
+                ("payment_transactions", [("user_id", 1), ("created_at", -1)], {"background": True}),
+                ("payment_transactions", [("razorpay_order_id", 1)], {"unique": True, "background": True}),
             ]
+
             for collection, spec, kwargs in indexes:
                 try:
                     await db[collection].create_index(spec, **kwargs)
                 except Exception as idx_err:
-                    # Index already exists with same/different options — skip silently
                     logger.debug(f"Index on {collection}{spec} skipped: {idx_err}")
-            logger.info(
-                "✅ MongoDB indexes ensured (OTP TTL, LoginAttempt TTL, anon-convo TTL)"
-            )
+
+            # OTP storage is now in-memory only. Purge legacy persisted OTP data.
+            try:
+                purge_result = await db["otp_records"].delete_many({})
+                if purge_result.deleted_count:
+                    logger.info(
+                        f"Purged {purge_result.deleted_count} legacy OTP records from MongoDB"
+                    )
+            except Exception as purge_err:
+                logger.debug(f"Legacy OTP purge skipped: {purge_err}")
+
+            logger.info("MongoDB indexes ensured (LoginAttempt TTL, anon-convo TTL)")
 
         except Exception as e:
             logger.error(f"Failed to connect to MongoDB: {e}")
@@ -194,7 +180,6 @@ class Database:
             return False
 
 
-# Convenience functions for backward compatibility
 async def init_db():
     """Initialize database connection."""
     await Database.connect()

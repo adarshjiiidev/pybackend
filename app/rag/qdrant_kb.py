@@ -106,11 +106,28 @@ class QdrantKBRAG:
     def _qdrant_search(self, query: str, top_k: int) -> List[Dict[str, Any]]:
         query_vec = self._embed(query)
 
+        # ── TurboQuant-aware search ──────────────────────────────────────────────────
+        # ignore=False  → USE quantized (INT8) index for fast candidate retrieval
+        # rescore=True  → re-rank top candidates w/ original float32 → 0% accuracy loss
+        # oversampling=2.0 → retrieve 2x candidates before rescoring for best recall
+        try:
+            from qdrant_client.models import SearchParams, QuantizationSearchParams
+            _search_params = SearchParams(
+                quantization=QuantizationSearchParams(
+                    ignore=False,
+                    rescore=True,
+                    oversampling=2.0,
+                )
+            )
+        except ImportError:
+            _search_params = None  # older qdrant-client: skip quantization params
+
         hits = self._client.search(
             collection_name=self._collection,
             query_vector=query_vec,
             limit=top_k * 5,          # Wider net for deduplication
             score_threshold=0.20,     # Min relevance (0=random, 1=identical)
+            search_params=_search_params,
         )
 
         seen_files: Dict[str, Dict] = {}

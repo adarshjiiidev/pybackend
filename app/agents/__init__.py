@@ -8,6 +8,8 @@ from .realtime_analysis import RealtimeAnalysisAgent
 from .portfolio import PortfolioAgent
 from .explainer import ExplainerAgent
 from .verifier import VerifierAgent
+from .quick_reply import QuickReplyAgent
+
 # Research loop agents
 from .planner import PlannerAgent
 from .researcher import ResearcherAgent
@@ -23,8 +25,10 @@ __all__ = [
     "PortfolioAgent",
     "ExplainerAgent",
     "VerifierAgent",
+    "QuickReplyAgent",
     "PlannerAgent",
     "ResearcherAgent",
     "EvaluatorAgent",
     "RefinerAgent"
 ]
+

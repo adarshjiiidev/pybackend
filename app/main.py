@@ -9,6 +9,7 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,13 +25,15 @@ _MAX_REQUEST_BODY_BYTES = 10 * 1024 * 1024  # 10 MB
 from .api.auth import router as auth_router
 from .api.chat import rate_limiter
 from .api.chat import router as chat_router
-from .api.share import router as share_router  # New share endpoints
+from .api.share import router as share_router
 from .api.transcribe import router as transcribe_router
+from .api.payments import router as payments_router
 from .auth.security import get_optional_user
 from .config import close_db, init_db, settings
 from .database import ConversationRepository, SessionRepository
 from .graph import run_agent_workflow
 from .models import ChatRequest, ConversationHistoryResponse, SessionResponse
+from .utils.fallback_response import resolve_response_or_fallback
 
 # Configure logging
 logging.basicConfig(
@@ -38,6 +41,8 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+_is_production = settings.is_production
+_frontend_origin = f"{urlparse(settings.frontend_url).scheme}://{urlparse(settings.frontend_url).netloc}"
 
 
 @asynccontextmanager
@@ -94,13 +99,13 @@ async def lifespan(app: FastAPI):
                 "⚠️  Qdrant KB using keyword fallback — run: python -m app.rag.ingest_kb"
             )
             logger.warning(msg)
-            if os.environ.get("ENVIRONMENT", "development") == "production":
+            if settings.is_production:
                 logger.warning(
                     "💡 Running in production with KB fallback — semantic search disabled"
                 )
     except Exception as e:
         logger.error(f"KB warmup error: {e}")
-        if os.environ.get("ENVIRONMENT", "development") == "production":
+        if settings.is_production:
             logger.warning(
                 "⚠️ KB unavailable in production — continuing with degraded search"
             )
@@ -110,7 +115,7 @@ async def lifespan(app: FastAPI):
         logger.info("Database initialized successfully")
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
-        if os.environ.get("ENVIRONMENT", "development") == "production":
+        if settings.is_production:
             logger.critical("🚨 DB init failed in production — aborting startup")
             raise  # Crash fast in production — don't serve users with broken DB
         # Dev: continue anyway so local work isn't blocked
@@ -170,9 +175,6 @@ async def lifespan(app: FastAPI):
     await close_db()
 
 
-# ── FastAPI app ────────────────────────────────────────────────────────────
-_is_production = os.environ.get("ENVIRONMENT", "development") == "production"
-
 # Create FastAPI app — hide /docs and /redoc in production
 app = FastAPI(
     title="Daddy's AI Backend",
@@ -185,32 +187,94 @@ app = FastAPI(
     openapi_url=None if _is_production else "/openapi.json",
 )
 
-# Session middleware (required for OAuth) — reads secret from env for production
-_session_secret = os.environ.get(
-    "SESSION_SECRET_KEY",
-    "change-me-in-production-must-be-32-chars-min-xxxxxxxxxxx",  # dev fallback only
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.session_secret_key,
+    same_site="lax",
+    https_only=_is_production,
 )
-if _session_secret.startswith("change-me-in-production"):
-    logger.warning(
-        "⚠️ SESSION_SECRET_KEY not set in environment! Using insecure dev fallback. "
-        "Set SESSION_SECRET_KEY in your .env for production."
-    )
-app.add_middleware(SessionMiddleware, secret_key=_session_secret)
 
-# CORS middleware — reads allowed origins from env; defaults to localhost for dev
-_raw_origins = os.environ.get(
-    "ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001"
-)
-_allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_allowed_origins,
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
     expose_headers=["X-Request-ID"],
 )
 
+
+
+class ApiKeyGuardMiddleware(BaseHTTPMiddleware):
+    """
+    Blocks all requests that don't carry the correct X-API-Key header.
+
+    Allowed without a key:
+      - OPTIONS  (CORS preflight — browser needs this)
+      - GET /health  (uptime monitors)
+
+    Browser visits (no X-API-Key) get a plain 403 HTML page
+    that looks identical to the LTC-calculator-style access denied.
+    API clients without the key get a 403 JSON response.
+    """
+
+    _ALLOWED_PATHS = {"/health"}
+    _403_HTML = (
+        "<!DOCTYPE html><html><head>"
+        "<title>403 Forbidden</title>"
+        "<style>body{font-family:sans-serif;display:flex;flex-direction:column;"
+        "align-items:center;justify-content:center;min-height:100vh;margin:0;"
+        "background:#f5f5f5;color:#333}"
+        "h1{font-size:2rem;margin-bottom:.5rem}"
+        "p{color:#666;margin:.25rem 0}"
+        "</style></head><body>"
+        "<h1>&#x26D4; 403 Forbidden</h1>"
+        "<p>Access to this server was denied.</p>"
+        "<p>You don&#39;t have authorization to view this page.</p>"
+        "<p><small>HTTP ERROR 403</small></p>"
+        "</body></html>"
+    )
+
+    def __init__(self, app, api_key: str):
+        super().__init__(app)
+        self._api_key = api_key
+
+    async def dispatch(self, request: Request, call_next):
+        # Always allow CORS preflight
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
+        # Always allow health check (uptime monitors)
+        if request.url.path in self._ALLOWED_PATHS:
+            return await call_next(request)
+
+        provided = request.headers.get("X-API-Key", "")
+        if provided == self._api_key:
+            return await call_next(request)
+
+        # Determine response format: HTML for browsers, JSON for API clients
+        accept = request.headers.get("Accept", "")
+        ua = request.headers.get("User-Agent", "")
+        is_browser = "text/html" in accept or (
+            "Mozilla" in ua and "curl" not in ua and "python" not in ua.lower()
+        )
+
+        logger.warning(
+            f"[ApiKeyGuard] 403 {request.method} {request.url.path} "
+            f"from {request.client}"
+        )
+
+        if is_browser:
+            return Response(
+                content=self._403_HTML,
+                status_code=403,
+                media_type="text/html",
+            )
+        return Response(
+            content='{"detail":"Access denied. Valid X-API-Key header required."}',
+            status_code=403,
+            media_type="application/json",
+        )
 
 class BodySizeLimitMiddleware(BaseHTTPMiddleware):
     """
@@ -261,11 +325,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "script-src 'self' accounts.google.com; "
             "style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data: https:; "
-            "connect-src 'self'; "
+            f"connect-src 'self' {_frontend_origin} https://accounts.google.com https://oauth2.googleapis.com; "
             "frame-ancestors 'none';"
         )
         # Only add HSTS in production (breaks local http)
-        if os.environ.get("ENVIRONMENT", "development") == "production":
+        if settings.is_production:
             response.headers["Strict-Transport-Security"] = (
                 "max-age=31536000; includeSubDomains"
             )
@@ -294,6 +358,13 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         return response
 
 
+# ApiKeyGuardMiddleware — blocks direct browser/unauthenticated access
+_backend_api_key = os.getenv("BACKEND_API_KEY", "")
+if _backend_api_key:
+    app.add_middleware(ApiKeyGuardMiddleware, api_key=_backend_api_key)
+    logger.info("✅ ApiKeyGuardMiddleware active — backend requires X-API-Key")
+else:
+    logger.warning("⚠️ BACKEND_API_KEY not set — ApiKeyGuardMiddleware disabled")
 app.add_middleware(BodySizeLimitMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
@@ -302,7 +373,8 @@ app.add_middleware(RequestLoggingMiddleware)
 app.include_router(auth_router)
 app.include_router(chat_router)
 app.include_router(transcribe_router)
-app.include_router(share_router)  # Public sharing endpoints
+app.include_router(share_router)
+app.include_router(payments_router)
 
 
 @app.get("/")
@@ -450,11 +522,9 @@ async def chat_stream(request: ChatRequest, http_request: Request):
             conversation_history=conversation_history,
         )
 
-        response_text: str = str(
-            final_state.get(
-                "final_response", "I apologize, but I couldn't generate a response."
-            )
-            or "I apologize, but I couldn't generate a response."
+        response_text: str = resolve_response_or_fallback(
+            final_state=final_state,
+            query=request.query,
         )
         selected_mode = final_state.get("selected_mode", request.mode)
         metadata = final_state.get("execution_metadata", {})

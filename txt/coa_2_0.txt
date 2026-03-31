@@ -1,54 +1,107 @@
-# COA 2.0 - Direction from OI Change
+# COA 2.0 - Chart of Accuracy from Open Interest
 
-## What is COA 2.0?
+## What COA 2.0 Means
 
-**Definition:** Predicting market direction using **OI Change** (Open Interest Change).
-**Usage:** Used primarily at **Diversion** points (EOR/EOS) to confirm reversal.
+COA 2.0, or Chart of Accuracy 2.0, is a market confirmation method based on
+open interest behaviour. It studies call-side and put-side open interest, or
+OI change, to understand whether the market is more likely to hold support,
+hold resistance, break support, break resistance, or stay range bound.
 
-## The 6 Basic Rules
+This theory is taught inside the LTP Calculator course and is credited there
+to Dr. Vinay Prakash Tiwari.
 
-### 1. Bearish Signals (Market Down)
-- **Call OI Change Increasing (↑)** AND **Put OI Change Decreasing (↓)** = **Blood Bath** (Strong Sell)
-- **Call OI Change Increasing (↑)** AND **Put OI Change Stable** = **Bearish**
-- **Call OI Change Stable** AND **Put OI Change Decreasing (↓)** = **Bearish**
-- **Put OI Change Decreasing (↓)** = Generally Bearish (Support leaving)
+## Core Logic
 
-### 2. Bullish Signals (Market Up)
-- **Call OI Change Decreasing (↓)** AND **Put OI Change Increasing (↑)** = **Bull Run** (Strong Buy)
-- **Call OI Change Decreasing (↓)** AND **Put OI Change Stable** = **Bullish**
-- **Call OI Change Stable** AND **Put OI Change Increasing (↑)** = **Bullish**
-- **Call OI Change Decreasing (↓)** = Generally Bullish (Resistance leaving)
+- Call-side open interest acts like resistance because it tries to stop the
+  market from moving upward.
+- Put-side open interest acts like support because it tries to stop the market
+  from moving downward.
+- Each side can be in three states: increasing, stable, or decreasing.
+- The three call-side states and three put-side states together create the
+  nine scenarios of COA 2.0.
 
-### 3. Range Bound / Unknown Signals
-- **Both Stable:** Range Bound (Safety)
-- **Both Increasing:** Range Bound (Fighting)
-- **Both Decreasing:** Unpredictable (COA 2.0 fails here)
+## OI Graph Setup on LTP Calculator
 
-## Detailed Scenarios Table
+- COA 2.0 is read from the OI graph or OI change graph.
+- On the LTP Calculator, the OI graph can be opened by clicking the OI change
+  value on either side of a strike price.
+- The graph shows call-side and put-side OI change from 9:15 AM up to the
+  current market time.
+- To choose the right strike, first identify the ATM strike price.
+- A practical shortcut taught in the chapter is this:
+  the strike where reversal values are visible on both the call side and put
+  side is generally the ATM strike.
+- The chapter explains the graph visually as:
+  green line = call-side open interest
+  red line = put-side open interest
 
-| Call OI Change | Put OI Change | Market Direction |
+## Nine COA 2.0 Scenarios
+
+| Call OI state | Put OI state | Expected reading |
 |---|---|---|
-| Increasing ↑ | Decreasing ↓ | **Blood Bath (Strong Down)** |
-| Decreasing ↓ | Increasing ↑ | **Bull Run (Strong Up)** |
-| Increasing ↑ | Stable | Bearish |
-| Stable | Decreasing ↓ | Bearish |
-| Decreasing ↓ | Stable | Bullish |
-| Stable | Increasing ↑ | Bullish |
-| Stable | Stable | Range Bound (Reversal from EOR/EOS) |
-| Increasing ↑ | Increasing ↑ | Range Bound |
-| Decreasing ↓ | Decreasing ↓ | **Unpredictable** (Avoid trade) |
+| Increasing | Increasing | Market can reverse from both sides; immediate support and immediate resistance both look strong; usually consolidation or range bound behaviour |
+| Increasing | Stable | Immediate resistance is likely to hold, while immediate support may break down |
+| Increasing | Decreasing | Immediate resistance is likely to hold, and immediate support is more likely to break down |
+| Stable | Increasing | Immediate support is likely to hold, while immediate resistance may break out |
+| Stable | Stable | Market can reverse from both sides; usually consolidation at that strike-price range |
+| Stable | Decreasing | Immediate resistance is likely to hold, while immediate support may break down |
+| Decreasing | Increasing | Immediate support is likely to hold, while immediate resistance may break out |
+| Decreasing | Stable | Immediate support is likely to hold, while immediate resistance is more likely to break out |
+| Decreasing | Decreasing | Market becomes unpredictable because both sides are weakening |
 
-## When to use COA 2.0?
+## Important Interpretation Rules
 
-1. **At Diversion Points:** When market hits EOR, EOS, EOR+1, or EOS-1.
-2. **Confirmation:** Before taking a trade, check COA 2.0.
-   - Example: Market at EOR (Resistance). You want to sell PE (Bullish trade? No, Sell CE or Buy Put).
-   - *Correction:* At EOR we sell Call (Bearish trade).
-   - Check COA 2.0: If Call OI Change is Increasing (Writers adding positions), it CONFIRMS the resistance. Safe to trade.
+- Increasing call-side OI generally strengthens resistance.
+- Increasing put-side OI generally strengthens support.
+- Decreasing call-side OI weakens resistance and helps bullish breakout
+  chances.
+- Decreasing put-side OI weakens support and helps bearish breakdown chances.
+- When both sides are stable or both sides are increasing, the market often
+  behaves in a range-bound way near that strike zone.
+- When both sides are decreasing, COA 2.0 becomes weak and the market can turn
+  unreliable or noisy.
 
-3. **During SOC:** If market is confused by OI, check trends in OI Change.
+## Best Time to Use COA 2.0
 
-## Simple Logic:
-- **Call Writers (Call OI Change) = Bears.** If they increase, Market falls.
-- **Put Writers (Put OI Change) = Bulls.** If they increase, Market rises.
-- **If Writers LEAVE (Decrease) = Opposite side wins.** (Call writers leave = Bulls win).
+- Prefer using COA 2.0 between 9:45 AM and 2:30 PM.
+- Before 9:45 AM, new writer positions are still forming, so readings can be
+  misleading.
+- After 2:30 PM, writers often start squaring off positions, so the logic of
+  COA 2.0 becomes less reliable.
+- The chapter specifically warns that the double-decreasing scenario appears
+  often after 2:30 PM, which is one reason to avoid relying on COA 2.0 late in
+  the day.
+
+## Where to Use COA 2.0
+
+- COA 2.0 can be used during consolidation or range-bound conditions.
+- It can also be used at diversions and at the end of diversions.
+- Do not check COA 2.0 on the first hit at an extension.
+- If the market comes again to the extension for a second hit, then COA 2.0
+  can be checked for confirmation.
+
+## Practical Trading Role
+
+COA 2.0 is not just a definition chapter; it is a confirmation framework.
+The idea is to look at how writers are behaving around the current ATM strike
+and then decide whether support or resistance is likely to hold or break.
+
+In plain language:
+
+- Stronger call-side OI means bears are defending the upside.
+- Stronger put-side OI means bulls are defending the downside.
+- Weakening call-side OI means resistance is losing strength.
+- Weakening put-side OI means support is losing strength.
+
+## Summary
+
+COA 2.0 is the open-interest-based confirmation system of the LTP Calculator
+course. It combines the three states of call-side OI and the three states of
+put-side OI to form nine scenarios. Those scenarios are then used to judge
+whether the market is more likely to hold support, hold resistance, break out,
+break down, or become unpredictable.
+
+## Source
+
+Primary source used to update this knowledge file:
+https://howtouseltpcalculator.in/chart-of-accuracy-2-0/

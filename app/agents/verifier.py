@@ -17,6 +17,7 @@ except ImportError:
 from ..config.key_rotator import get_groq_client
 from ..models.agent_state import AgentState
 from ..tools import clean_response
+from ..utils.fallback_response import resolve_response_or_fallback
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ class VerifierAgent:
     """Verifies and enhances agent responses with structured formatting."""
     
     def __init__(self):
-        # OpenRouter first priority, Groq fallback
+        # OpenRouter first priority, Groq fallback (for text formatting)
         if _HAS_OPENROUTER and settings.openrouter_available:
             self.client = get_openrouter_client()
             self.model = settings.get_openrouter_model(ModelType.FAST)
@@ -34,8 +35,64 @@ class VerifierAgent:
             self.client = get_groq_client()
             self.model = settings.get_model_for_task(ModelType.FAST)
             self._provider = "groq"
+        # Always use a dedicated Groq client for vision — model_vision is Groq-only
+        self._groq_vision_client = get_groq_client()
         self.temperature = 0.3
         self.max_tokens = settings.get_max_tokens_for_task(ModelType.FAST)
+
+    @staticmethod
+    def _is_mergeable_list_content(line: str) -> bool:
+        trimmed = line.strip()
+        if not trimmed:
+            return False
+        if re.fullmatch(r"\d+[.)]", trimmed):
+            return False
+        if trimmed in {"-", "*", "\u2022", "\u25cf", "\u00b7"}:
+            return False
+        return not (
+            trimmed.startswith("#")
+            or trimmed.startswith(">")
+            or trimmed.startswith("|")
+            or trimmed.startswith("```")
+            or trimmed.startswith(":::")
+            or trimmed in {"---", "***"}
+        )
+
+    def _normalize_broken_list_markup(self, text: str) -> str:
+        lines = text.splitlines()
+        normalized: list[str] = []
+        i = 0
+        in_code_block = False
+
+        while i < len(lines):
+            current = lines[i]
+            trimmed = current.strip()
+
+            if trimmed.startswith("```"):
+                in_code_block = not in_code_block
+                normalized.append(current)
+                i += 1
+                continue
+
+            if not in_code_block and i + 1 < len(lines):
+                next_line = lines[i + 1]
+                next_trimmed = next_line.strip()
+
+                if re.fullmatch(r"\d+[.)]", trimmed) and self._is_mergeable_list_content(next_trimmed):
+                    marker = f"{trimmed[:-1]}." if trimmed.endswith(")") else trimmed
+                    normalized.append(f"{marker} {next_trimmed}")
+                    i += 2
+                    continue
+
+                if trimmed in {"-", "*", "\u2022", "\u25cf", "\u00b7"} and self._is_mergeable_list_content(next_trimmed):
+                    normalized.append(f"- {next_trimmed}")
+                    i += 2
+                    continue
+
+            normalized.append(current)
+            i += 1
+
+        return "\n".join(normalized)
     
     async def verify_and_refine(self, state: AgentState) -> AgentState:
         """
@@ -49,13 +106,14 @@ class VerifierAgent:
         - Professional, non-technical tone
         - Image analysis if images provided
         """
-        raw_response = state.get("final_response", "")
+        raw_response = self._normalize_broken_list_markup(state.get("final_response", ""))
         images = state.get("images", [])
         metadata = state.get("execution_metadata") or {}
         
         # Skip verifier entirely for greetings, casual, and thanks — they don't need formatting
         if metadata.get("skip_verifier"):
             logger.info("⏭️ Skipping verifier for greeting/casual/thanks response")
+            state["final_response"] = raw_response
             return state
         
         # Skip LLM reformatting for data-rich agent responses — the reformatter destroys their data
@@ -77,8 +135,14 @@ class VerifierAgent:
                 reasoning_text = '\n'.join(formatted_reasoning)
                 state["final_response"] = f"<reasoning>{reasoning_text}</reasoning>\n\n{raw_response}"
             elif raw_response and len(raw_response) > 100:
-                query = state.get("query", "query")
-                synth_reasoning = f"1. Identified query → {agent_name}\n2. Fetched real-time data using tools\n3. Synthesized response from tool results"
+                synth_reasoning = self._build_synthetic_reasoning(
+                    state=state,
+                    cleaned_length=len(raw_response),
+                    final_length=len(raw_response),
+                    formatter_applied=False,
+                    formatter_note="Verifier skipped LLM formatting to preserve tool-derived data",
+                )
+                logger.info("✅ Generated synthetic reasoning (tool-data path)")
                 state["final_response"] = f"<reasoning>{synth_reasoning}</reasoning>\n\n{raw_response}"
             return state
         
@@ -101,32 +165,23 @@ class VerifierAgent:
             state["final_response"] = raw_response
         
         if not raw_response:
-            state["final_response"] = "I apologize, but I couldn't generate a response. Please try rephrasing your question."
+            state["final_response"] = resolve_response_or_fallback(
+                final_state={},
+                query=state.get("query", ""),
+            )
             return state
         
         # Clean response (remove internal reasoning markers, extra whitespace)
-        cleaned = clean_response(raw_response)
-        
-        # Check for bullet points (will be handled by formatter)
-        self._check_formatting(cleaned)
-        
-        # Enforce formatting rules: convert bullet points to tables/carousels if found
-        cleaned = await self._enforce_formatting(cleaned)
+        cleaned = self._normalize_broken_list_markup(clean_response(raw_response))
         
         # Get internal reasoning if available
         internal_reasoning = state.get("internal_reasoning")
+        has_real_reasoning = bool(internal_reasoning and internal_reasoning.strip())
         reasoning_text = ""
-        
-        if internal_reasoning and internal_reasoning.strip():
+
+        if has_real_reasoning:
             # Show the REAL reasoning from the model verbatim — don't re-number or alter it
             reasoning_text = internal_reasoning.strip()
-        elif raw_response and len(raw_response) > 100:
-            # Only synthesize when there is genuinely NO real reasoning at all
-            agent = (state.get("execution_metadata") or {}).get("agent", "unknown")
-            query = state.get("query", "user query")
-            reasoning_text = f"1. Routed to {agent} agent\n2. Processed: {query[:80]}...\n3. Generated response"
-            logger.info("✅ Generated synthetic reasoning (no real reasoning available)")
-
         
         # Now format the main response with structured headings
         try:
@@ -138,7 +193,8 @@ class VerifierAgent:
             has_carousel = "carousel" in cleaned
             has_code = "```" in cleaned
             has_emoji = any(e in cleaned for e in ["📈", "📉", "💎", "⚠️", "🎯", "📊", "📌", "💼", "🔴", "🟢", "✅", "❌"])
-            is_short = len(cleaned) < 300
+            response_length = len(cleaned)
+            is_short = response_length < 300
 
             # Check for bullets/numbered lists — these MUST be reformatted regardless
             has_bullets = bool(re.search(r'^\s*[-*•●·]\s+', cleaned, re.MULTILINE))
@@ -151,21 +207,34 @@ class VerifierAgent:
                     has_headings or has_tables or has_carousel or has_code
                     or (has_emoji and is_short)
                     or len(cleaned) < 150
+                    or response_length >= 220
                 )
             )
             
             if is_well_formatted:
                 logger.info("✅ Response already well-formatted, skipping LLM formatting")
                 formatted_response = cleaned
+                format_note = "Response already well-formatted, skipped LLM formatting"
             else:
                 logger.info("🔄 Applying LLM formatting to improve structure")
                 # Use LLM to add proper markdown formatting
                 formatted_response = await self._format_with_structure(cleaned, state)
+                format_note = "Applied LLM formatting to improve structure"
             
             # Validate formatted response
             if not formatted_response or not formatted_response.strip():
                 logger.warning("Formatting returned empty response, using cleaned version")
                 formatted_response = cleaned
+
+            if not has_real_reasoning and cleaned.strip():
+                reasoning_text = self._build_synthetic_reasoning(
+                    state=state,
+                    cleaned_length=len(cleaned),
+                    final_length=len(formatted_response),
+                    formatter_applied=not is_well_formatted,
+                    formatter_note=format_note,
+                )
+                logger.info("✅ Generated synthetic reasoning (no real reasoning available)")
             
             # FORCE REASONING: Always add reasoning if available
             if reasoning_text:
@@ -188,65 +257,101 @@ class VerifierAgent:
                 state["final_response"] = cleaned
         
         return state
-    
-    def _check_formatting(self, response: str):
+
+    def _build_synthetic_reasoning(
+        self,
+        state: AgentState,
+        cleaned_length: int,
+        final_length: int,
+        formatter_applied: bool,
+        formatter_note: str,
+    ) -> str:
+        """
+        Build user-facing synthetic reasoning when the model does not provide native reasoning.
+        """
+        metadata = state.get("execution_metadata") or {}
+        agent_name = (
+            metadata.get("agent")
+            or state.get("selected_mode")
+            or "unknown"
+        )
+        query = re.sub(r"\s+", " ", (state.get("query") or "").strip())
+        query_preview = (
+            (query[:77] + "...") if len(query) > 80 else (query or "user query")
+        )
+
+        raw_tools = (
+            metadata.get("autonomous_tools_used")
+            or metadata.get("tools_called")
+            or metadata.get("tools_used")
+            or []
+        )
+        if isinstance(raw_tools, str):
+            tool_names = [raw_tools]
+        else:
+            tool_names = [str(t) for t in raw_tools if t]
+        tools_preview = ", ".join(tool_names[:4]) if tool_names else "none"
+
+        sentences = [
+            (
+                f"I interpreted your prompt as asking about \"{query_preview}\" and routed it "
+                f"through the {agent_name} path for the most relevant response strategy."
+            ),
+            (
+                f"To keep the answer grounded, I used available support signals "
+                f"({tools_preview}) and then validated the response quality."
+            ),
+            (
+                f"No native model reasoning trace was returned, so this is a synthetic summary; "
+                f"I applied verifier checks ({formatter_note}, {cleaned_length} chars) "
+                f"before finalizing the response ({final_length} chars)."
+            ),
+        ]
+
+        if formatter_applied:
+            sentences.append(
+                "I also normalized structure for readability before sending the final answer."
+            )
+
+        return " ".join(sentences)
+
+    def _check_formatting(self, response: str) -> None:
         """Log warning if bullet points detected."""
         has_bullets = bool(re.search(r'^\s*[-*•]\s+', response, re.MULTILINE))
-        has_numbered = bool(re.search(r'^\s*\d+[\.)]\s+', response, re.MULTILINE))
-        
+        has_numbered = bool(re.search(r'^\s*\d+[.)]\s+', response, re.MULTILINE))
         if has_bullets or has_numbered:
-            logger.warning("⚠️ Detected bullet points/numbered lists - formatter will convert to tables/carousels")
-    
-    async def _enforce_formatting(self, response: str) -> str:
-        """Placeholder for format enforcement - actual conversion happens in _format_with_structure."""
-        return response
-    
+            logger.warning("⚠️ Detected bullet points/numbered lists — formatter will convert to tables/carousels")
+
     async def _analyze_images(self, state: AgentState) -> str:
-        """Analyze images using vision model."""
+        """Analyze images using Groq vision model (llama-4-scout is Groq-only)."""
         images = state.get("images", [])
         query = state.get("query", "Describe these images")
-        
+
         try:
-            # Prepare messages for vision model
-            content = [{"type": "text", "text": query}]
-            
-            # Add images to content
+            content: list = [{"type": "text", "text": query}]
+
             for img in images:
-                # Ensure proper base64 format
-                if img.startswith('data:image'):
-                    image_url = img
-                else:
-                    image_url = f"data:image/jpeg;base64,{img}"
-                
-                content.append({
-                    "type": "image_url",
-                    "image_url": {"url": image_url}
-                })
-            
-            # Use vision model
-            response = await self.client.chat.completions.create(
+                image_url = img if img.startswith("data:image") else f"data:image/jpeg;base64,{img}"
+                content.append({"type": "image_url", "image_url": {"url": image_url}})
+
+            # Always use the dedicated Groq client — model_vision is a Groq-only model
+            response = await self._groq_vision_client.chat.completions.create(
                 model=settings.model_vision,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": content
-                    }
-                ],
+                messages=[{"role": "user", "content": content}],
                 temperature=0.5,
-                max_tokens=2048
+                max_tokens=2048,
             )
-            
+
             return response.choices[0].message.content
-            
+
         except Exception as e:
             logger.error(f"Image analysis error: {e}")
             return f"I can see you've shared {len(images)} image(s), but I encountered an error analyzing them. {query}"
-    
+
     async def _format_with_structure(self, response: str, state: AgentState) -> str:
         """Use LLM to add proper structure and formatting to response."""
-        
         query = state.get("query", "")
-        
+
         formatting_prompt = f"""Improve the readability of this content. Your job is ONLY to improve structure, not change content.
 
 CRITICAL FORMATTING RULES:
@@ -290,21 +395,28 @@ Output ONLY the formatted content."""
             format_response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "You improve text structure for readability. 🚫 NEVER use bullet points - use tables or carousels instead. Use ## for section headings, ** for bold. Output only the formatted text—never instructions or meta-commentary."},
-                    {"role": "user", "content": formatting_prompt}
+                    {
+                        "role": "system",
+                        "content": (
+                            "You improve text structure for readability. "
+                            "🚫 NEVER use bullet points — use tables or carousels instead. "
+                            "Use ## for section headings, ** for bold. "
+                            "Output only the formatted text — never instructions or meta-commentary."
+                        ),
+                    },
+                    {"role": "user", "content": formatting_prompt},
                 ],
                 temperature=0.2,
-                max_tokens=self.max_tokens
+                max_tokens=self.max_tokens,
             )
-            
+
             formatted = format_response.choices[0].message.content
             return formatted.strip()
-            
+
         except Exception as e:
             logger.error(f"Formatting LLM call failed: {e}")
-            # Fallback: add basic structure
             return self._add_basic_structure(response)
-    
+
     def _add_basic_structure(self, response: str) -> str:
         """Fallback: Return response as-is without adding generic headings."""
         return response

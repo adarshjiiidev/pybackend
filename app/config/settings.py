@@ -3,10 +3,13 @@ Application settings using Pydantic Settings.
 Dual-provider: OpenRouter (primary LLM) + Groq (web search + GPT-OSS deep reasoning).
 """
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import field_validator, model_validator
-from typing import Optional, Literal
+import logging
 from enum import Enum
+from typing import Literal, Optional
+from urllib.parse import urlparse
+
+from pydantic import AliasChoices, Field, field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class ModelType(str, Enum):
@@ -51,11 +54,11 @@ class Settings(BaseSettings):
     model_vision: str = "meta-llama/llama-4-scout-17b-16e-instruct"  # Vision (Groq)
     
     # ── OpenRouter Model Selection (primary LLM — all free) ──────────────
-    or_model_deep: str = "arcee-ai/trinity-large-preview:free"     # 400B MoE, 131K ctx, tool calling
-    or_model_fast: str = "arcee-ai/trinity-mini:free"              # Quick greetings, routing
+    or_model_deep: str = "stepfun/step-3.5-flash:free"             # Fast free model for deep-text fallback
+    or_model_fast: str = "stepfun/step-3.5-flash:free"             # Quick greetings, routing
     or_model_analysis: str = "stepfun/step-3.5-flash:free"         # 196B MoE, 256K ctx, strong tool use
     or_model_kb_rag: str = "liquid/lfm-2.5-1.2b-thinking:free"    # Reasoning traces, RAG synthesis
-    or_model_router: str = "arcee-ai/trinity-mini:free"            # Fast intent classification
+    or_model_router: str = "stepfun/step-3.5-flash:free"           # Fast intent classification
     or_model_creative: str = "stepfun/step-3.5-flash:free"         # Educational content
     
     # Legacy aliases (keep for backward compat)
@@ -78,6 +81,7 @@ class Settings(BaseSettings):
     max_tokens_reasoning_deep: int = 4096  # 120B: 8K TPM, 200K TPD
     max_tokens_reasoning_fast: int = 4096  # 20B: 8K TPM, 200K TPD
     max_tokens_compound: int = 4096  # Compound: 70K TPM
+    max_tokens_creative: int = 6144
     max_tokens_default: int = 4096
     max_tokens_fast: int = 1024
     
@@ -123,8 +127,9 @@ class Settings(BaseSettings):
     
     # JWT Secret — REQUIRED, minimum 32 characters
     jwt_secret: str = ""
+    session_secret_key: str = ""
 
-    # OTP HMAC Secret — used to hash OTP codes before storing in MongoDB.
+    # OTP HMAC Secret — used to hash OTP codes in ephemeral in-memory OTP state.
     # Must be set in .env for production. Generate with:
     # python -c "import secrets; print(secrets.token_hex(32))"
     otp_secret: str = ""
@@ -134,14 +139,12 @@ class Settings(BaseSettings):
     def validate_jwt_secret(cls, v: str) -> str:
         """Ensure JWT secret meets minimum security requirements."""
         if not v:
-            import os
-            if os.environ.get("ENVIRONMENT", "development") == "production":
+            if cls._is_production_env():
                 raise ValueError(
                     "JWT_SECRET is required in production. "
                     "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
                 )
             # Dev fallback — warn loudly
-            import logging
             logging.getLogger(__name__).warning(
                 "⚠️  JWT_SECRET not set! Using insecure dev fallback. "
                 "Set JWT_SECRET in your .env (min 32 chars)."
@@ -153,6 +156,104 @@ class Settings(BaseSettings):
                 "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
             )
         return v
+
+    @field_validator("session_secret_key")
+    @classmethod
+    def validate_session_secret_key(cls, v: str) -> str:
+        """Ensure session secret meets minimum security requirements."""
+        if not v:
+            if cls._is_production_env():
+                raise ValueError(
+                    "SESSION_SECRET_KEY is required in production. "
+                    "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+                )
+            logging.getLogger(__name__).warning(
+                "SESSION_SECRET_KEY not set! Using insecure dev fallback."
+            )
+            return "change-me-in-production-must-be-32-chars-min-xxxxxxxxxxx"
+        if len(v.encode()) < 32:
+            raise ValueError(
+                "SESSION_SECRET_KEY must be at least 32 characters long."
+            )
+        return v
+
+    @field_validator("environment")
+    @classmethod
+    def validate_environment(cls, v: str) -> str:
+        """Normalize environment values."""
+        normalized = (v or "development").strip().lower()
+        allowed = {"development", "staging", "production"}
+        if normalized not in allowed:
+            raise ValueError(
+                f"ENVIRONMENT must be one of {sorted(allowed)} (got {v!r})"
+            )
+        return normalized
+
+    @field_validator("frontend_url")
+    @classmethod
+    def validate_frontend_url(cls, v: str) -> str:
+        """Ensure frontend URL is absolute and production-safe."""
+        parsed = urlparse(v)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("FRONTEND_URL must be a full http/https URL.")
+        if cls._is_production_env() and parsed.scheme != "https":
+            raise ValueError("FRONTEND_URL must use https in production.")
+        return v.rstrip("/")
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def validate_cors_origins(cls, value: object) -> list[str]:
+        """Reject wildcard and insecure production origins."""
+        if isinstance(value, str):
+            values = [item.strip() for item in value.split(",")]
+        elif isinstance(value, list):
+            values = value
+        elif value is None:
+            values = []
+        else:
+            raise ValueError("CORS origins must be a list or comma-separated string.")
+
+        cleaned: list[str] = []
+        for origin in values:
+            if not isinstance(origin, str):
+                raise ValueError(f"Invalid CORS origin value: {origin!r}")
+            origin = origin.strip().rstrip("/")
+            if not origin:
+                continue
+            if origin == "*":
+                raise ValueError("CORS wildcard '*' is not allowed.")
+            parsed = urlparse(origin)
+            if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+                raise ValueError(f"Invalid CORS origin: {origin}")
+            if cls._is_production_env() and parsed.scheme != "https":
+                raise ValueError(
+                    f"CORS origin must use https in production: {origin}"
+                )
+            cleaned.append(origin)
+        if not cleaned:
+            if cls._is_production_env():
+                raise ValueError("At least one valid CORS origin is required.")
+            return ["http://localhost:3000", "http://localhost:3001"]
+        return cleaned
+
+    @model_validator(mode="after")
+    def validate_production_settings(self) -> "Settings":
+        """Fail fast on unsafe production defaults."""
+        if not self.is_production:
+            return self
+
+        localhost_hosts = {"localhost", "127.0.0.1"}
+        frontend_host = urlparse(self.frontend_url).hostname
+        if frontend_host in localhost_hosts:
+            raise ValueError("FRONTEND_URL cannot point to localhost in production.")
+
+        for origin in self.cors_origins:
+            if urlparse(origin).hostname in localhost_hosts:
+                raise ValueError(
+                    f"CORS origin cannot point to localhost in production: {origin}"
+                )
+
+        return self
     
     # Frontend URL (for OAuth redirects)
     frontend_url: str = "http://localhost:3000"
@@ -175,7 +276,10 @@ class Settings(BaseSettings):
     # CORS origins — set ALLOWED_ORIGINS in .env for production, e.g.:
     # ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
     # Do NOT use ["*"] in production — it disables credentials-based auth.
-    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:3001"]
+    cors_origins: list[str] = Field(
+        default=["http://localhost:3000", "http://localhost:3001"],
+        validation_alias=AliasChoices("CORS_ORIGINS", "ALLOWED_ORIGINS"),
+    )
     
     # Agent Settings
     default_agent_mode: str = "auto"
@@ -225,6 +329,8 @@ class Settings(BaseSettings):
             return self.max_tokens_reasoning_deep
         elif task_type in [ModelType.COMPOUND, ModelType.COMPOUND_MINI]:
             return self.max_tokens_compound
+        elif task_type == ModelType.CREATIVE:
+            return self.max_tokens_creative
         elif task_type in [ModelType.FAST, ModelType.ROUTER]:
             return self.max_tokens_fast
         return self.max_tokens_default
@@ -283,6 +389,18 @@ class Settings(BaseSettings):
     def nvidia_available(self) -> bool:
         """Whether NVIDIA NIM is configured."""
         return bool(self.nvidia_api_key)
+
+    @property
+    def is_production(self) -> bool:
+        """Whether the app is running in production mode."""
+        return self.environment == "production"
+
+    @staticmethod
+    def _is_production_env() -> bool:
+        """Best-effort production check during field validation."""
+        import os
+
+        return os.environ.get("ENVIRONMENT", "development").strip().lower() == "production"
 
 
 # Global settings instance

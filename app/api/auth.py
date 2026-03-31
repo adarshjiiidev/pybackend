@@ -468,8 +468,13 @@ async def reset_password(request: ResetPasswordRequest):
 
 
 
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh_token(refresh_token: str):
+async def refresh_token(body: RefreshTokenRequest):
+    refresh_token = body.refresh_token
     """
     Exchange a valid refresh token for a new access + refresh token pair.
 
@@ -564,9 +569,7 @@ _STATE_SECRET = os.environ.get(
 def _make_oauth_state() -> str:
     """Create a short-lived HMAC-signed state token."""
     nonce = secrets.token_urlsafe(16)
-    ts = str(
-        int(time.monotonic())
-    )  # relative timestamp (not wall clock, avoids clock skew)
+    ts = str(int(time.time()))  # wall-clock timestamp — survives process restarts/reloads
     payload = f"{nonce}.{ts}"
     sig = hmac.new(_STATE_SECRET, payload.encode(), hashlib.sha256).hexdigest()[:16]
     return f"{payload}.{sig}"
@@ -586,8 +589,8 @@ def _verify_oauth_state(state: str) -> bool:
         # Constant-time comparison prevents timing attacks
         if not hmac.compare_digest(received_sig, expected_sig):
             return False
-        # Check expiry
-        age = time.monotonic() - float(ts_str)
+        # Check expiry using wall-clock time (consistent across reloads)
+        age = time.time() - float(ts_str)
         return 0 <= age <= _OAUTH_STATE_TTL
     except Exception:
         return False
@@ -597,13 +600,39 @@ def _verify_oauth_state(state: str) -> bool:
 async def google_auth(request: Request):
     """
     Initiate Google OAuth flow.
-    Redirects user to Google consent screen.
+    Builds the Google consent-screen URL manually so our HMAC state is preserved.
+    Authlib's authorize_redirect generates its own UUID state when SessionMiddleware
+    is absent, silently discarding our custom state.
     """
-    # Stateless signed state — no server-side storage required
+    from urllib.parse import urlencode
+
     state = _make_oauth_state()
-    redirect_uri = request.url_for("google_callback")
+    redirect_uri = str(request.url_for("google_callback"))
+
+    params = urlencode({
+        "client_id": settings.google_client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "state": state,
+        "access_type": "offline",
+        "prompt": "select_account",
+    })
+    google_url = f"https://accounts.google.com/o/oauth2/v2/auth?{params}"
+
+    # Store state in a short-lived HttpOnly cookie so the callback can verify it.
+    # SameSite=Lax allows the cookie to be sent on the top-level redirect from Google.
+    response = RedirectResponse(url=google_url)
+    response.set_cookie(
+        key="oauth_state",
+        value=state,
+        max_age=_OAUTH_STATE_TTL,
+        httponly=True,
+        samesite="lax",
+        secure=settings.environment == "production",
+    )
     logger.info(f"Initiating Google OAuth — redirect: {redirect_uri}")
-    return await oauth.google.authorize_redirect(request, redirect_uri, state=state)
+    return response
 
 
 @router.get("/callback/google")
@@ -613,13 +642,25 @@ async def google_callback(request: Request):
     Verifies: CSRF state, auth code exchange, and Google id_token signature via tokeninfo.
     """
     try:
-        # ── CSRF state verification — reject tampered/replayed flows ──────────
-        state = request.query_params.get("state", "")
-        if not _verify_oauth_state(state):
-            logger.warning("Google OAuth callback: invalid or expired state parameter")
-            return RedirectResponse(
-                url=f"{settings.frontend_url}/?error=invalid_state"
+        # ── CSRF state verification via cookie ────────────────────────────────
+        # The state Google echoes back must match the cookie we set before redirecting.
+        state_from_google = request.query_params.get("state", "")
+        state_from_cookie = request.cookies.get("oauth_state", "")
+
+        if not state_from_cookie or state_from_google != state_from_cookie:
+            logger.warning(
+                "Google OAuth callback: state mismatch — "
+                f"google={state_from_google[:20]!r} cookie={'present' if state_from_cookie else 'MISSING'}"
             )
+            response = RedirectResponse(url=f"{settings.frontend_url}/?error=invalid_state")
+            response.delete_cookie("oauth_state")
+            return response
+
+        if not _verify_oauth_state(state_from_cookie):
+            logger.warning("Google OAuth callback: state signature/expiry invalid")
+            response = RedirectResponse(url=f"{settings.frontend_url}/?error=invalid_state")
+            response.delete_cookie("oauth_state")
+            return response
 
         code = request.query_params.get("code")
         if not code:
@@ -658,7 +699,6 @@ async def google_callback(request: Request):
         # ── Verify id_token via Google's tokeninfo endpoint ─────────────────
         # This validates: signature, expiry, issuer, and audience.
         # Never decode manually — that bypasses all cryptographic verification.
-        import httpx
         async with httpx.AsyncClient(timeout=8) as verify_client:
             verify_resp = await verify_client.get(
                 "https://oauth2.googleapis.com/tokeninfo",

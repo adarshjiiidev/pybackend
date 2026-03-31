@@ -19,7 +19,7 @@ This directory contains the core knowledge for the Finance Agent.
 
 ## 3. Market Analysis (LTP Calculator)
 - **coa_1_0.txt**: The 9 Scenarios (Chart of Accuracy 1.0) - PRIMARY.
-- **coa_2_0.txt**: OI Change analysis (Call vs Put writers).
+- **coa_2_0.txt**: OI graph, ATM strike selection, nine OI scenarios, and timing rules for COA 2.0 confirmation.
 - **scenarios.txt**: Detailed breakdown of 9 scenarios (Reference).
 - **weekly_range.txt**: Weekly Range (L1, L2, L3) logic.
 
@@ -41,5 +41,5 @@ This directory contains the core knowledge for the Finance Agent.
 2. **Step 2:** For basic terms (LTP, CMP, etc.), check *trading_terms.txt* and *general_finance.txt*.
 3. **Step 3:** For LTP Calculator features, check *ltp_features.txt* and *ai_ltp.txt*.
 4. **Step 4:** For LTP Logic & Scenarios, check *basics*, *wtb/wtt*, *shifting*, *soc*, and *coa_1_0*.
-5. **Step 5:** For Confirmation, use *coa_2_0*.
+5. **Step 5:** For open-interest confirmation around ATM, diversions, and extensions, use *coa_2_0*.
 6. **Step 6:** For General/Stocks, use *general_finance* and *technical_analysis*.

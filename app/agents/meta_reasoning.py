@@ -421,7 +421,12 @@ ONLY include chart when you have REAL numeric data from tools. NEVER fabricate c
 5. Lead with the most important insight in the very first sentence
 6. Specific: exact numbers, exact dates, real names from search results
 7. Naturally integrate data: "The conflict began on February 28..." not "Tool says..."
-8. For financial opinions: bull case AND bear case, in prose"""
+8. For financial opinions: bull case AND bear case, in prose
+CRITICAL OUTPUT RULE: Never mention your internal process in the final answer.
+Never write: 'I would like to call search_web', 'According to tool output',
+'The live data mentions', 'The pre-fetched data says', 'I need to call tools'.
+Simply integrate data naturally: write 'Oil rose 8%' not 'The tool shows oil rose 8%'.
+"""
 
         try:
             # ── STEP 0: Proactive pre-fetch (runs BEFORE any LLM call) ──────────
@@ -479,7 +484,12 @@ ONLY include chart when you have REAL numeric data from tools. NEVER fabricate c
                     "max_tokens": self.max_tokens,
                 }
 
-                if self.tools and settings.enable_tool_calling:
+                # Skip tools on iteration 1 if we already have pre-fetched web context
+                # — avoids tool failures leaking into the final answer
+                _has_web_ctx = len((state.get("web_context") or "").strip()) >= 300
+                _skip_tools_this_round = (_has_web_ctx and iteration == 1)
+
+                if self.tools and settings.enable_tool_calling and not _skip_tools_this_round:
                     call_params["tools"] = self.tools
                     call_params["tool_choice"] = "auto"
 

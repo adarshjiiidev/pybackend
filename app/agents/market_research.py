@@ -147,7 +147,12 @@ ONLY include chart when you have REAL numeric data from tools. NEVER fabricate c
 3. If primary tools fail, search_web ALWAYS works — use it
 4. Be specific: use exact numbers, dates, names from your search results
 5. For stock opinions: include bull AND bear case — in prose, not bullets
-6. Cite data naturally: "The US launched strikes on February 28..." not "According to tool output..." """
+6. Cite data naturally: "The US launched strikes on February 28..." not "According to tool output..." 
+CRITICAL OUTPUT RULE: Never mention your internal process in the final answer.
+Never write: 'I would like to call search_web', 'According to tool output',
+'The live data mentions', 'The pre-fetched data says', 'I need to call tools'.
+Simply integrate data naturally: write 'Oil rose 8%' not 'The tool shows oil rose 8%'.
+"""
 
         messages = [{"role": "system", "content": system_prompt}]
 
@@ -163,9 +168,35 @@ ONLY include chart when you have REAL numeric data from tools. NEVER fabricate c
         if symbols:
             context_hint = f"\n\nExtracted symbols: {', '.join(symbols)}"
 
+        # ── Inject pre-fetched web context as head-start data ──────────────────
+        web_ctx = (state.get("web_context") or "").strip()
+        web_head = ""
+        has_prefetch = len(web_ctx) >= 300
+        if has_prefetch:
+            web_head = (
+                f"\n\n---\nPRE-FETCHED WEB DATA (already retrieved — use this as primary source):\n"
+                f"{web_ctx[:4000]}\n---"
+            )
+            logger.info(f"⚡ market_research: injecting prefetched web context ({len(web_ctx)} chars)")
+
+        # Build user instruction based on whether we already have data
+        if has_prefetch:
+            instruction = (
+                "Using the PRE-FETCHED WEB DATA above, write a comprehensive Wikipedia-style analysis NOW.\n"
+                "DO NOT call any tools — the data is already provided above.\n"
+                "Structure: ## Title → ## Background → ## Current Situation → ## Market Impact → ## Outlook\n"
+                "Write dense informative paragraphs. ZERO bullet points. Use real numbers from the data.\n"
+                "Never say 'I apologize', never mention tools, never mention pre-fetched data."
+            )
+        else:
+            instruction = (
+                "Research this thoroughly using tools. "
+                "Write your answer in flowing paragraphs with Wikipedia-style headings. NO bullet points."
+            )
+
         messages.append({
             "role": "user",
-            "content": f"{query}{context_hint}\n\nResearch this thoroughly using tools. Write your answer in flowing paragraphs, NO bullet points. Do NOT answer from memory."
+            "content": f"{query}{context_hint}{web_head}\n\n{instruction}"
         })
 
         tool_results = {}
@@ -181,9 +212,13 @@ ONLY include chart when you have REAL numeric data from tools. NEVER fabricate c
                     "messages": messages,
                     "temperature": self.temperature,
                     "max_tokens": self.max_tokens,
-                    "tools": FINANCIAL_TOOLS,
-                    "tool_choice": "auto",
                 }
+
+                # Only include tools if we don't have pre-fetched data already
+                # (avoids tool failures when we already have the answer)
+                if not has_prefetch or iteration > 1:
+                    call_params["tools"] = FINANCIAL_TOOLS
+                    call_params["tool_choice"] = "auto"
 
                 # Reasoning effort for first round (Groq GPT-OSS only)
                 if iteration == 1 and self._provider == "groq":

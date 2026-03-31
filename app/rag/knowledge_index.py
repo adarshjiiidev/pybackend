@@ -43,9 +43,25 @@ KNOWLEDGE_INDEX = {
     "coa": {
         "primary_files": ["coa_1_0.txt", "coa_2_0.txt"],
         "related_files": ["scenarios.txt", "ltp_features.txt"],
-        "keywords": ["chart of accuracy", "9 scenarios", "oi change", "call writers", "put writers"],
+        "keywords": [
+            "chart of accuracy",
+            "chart of accuracy 2.0",
+            "coa 2.0",
+            "coa 2",
+            "9 scenarios",
+            "oi change",
+            "open interest graph",
+            "oi graph",
+            "call writers",
+            "put writers",
+            "atm strike",
+            "diversion",
+            "extension",
+            "immediate support",
+            "immediate resistance",
+        ],
         "category": "ltp_system",
-        "description": "Chart of Accuracy - 9 scenarios for market direction"
+        "description": "Chart of Accuracy - 9 scenarios for market direction using open interest and OI change"
     },
     
     "scenarios": {
@@ -259,6 +275,11 @@ QUICK_LOOKUP = {
     "9 scenarios": ["coa", "scenarios"],
     "coa 1.0": "coa",
     "coa 2.0": "coa",
+    "coa 2": "coa",
+    "open interest graph": "coa",
+    "oi graph": "coa",
+    "oi change graph": "coa",
+    "atm strike": "coa",
     
     # Market States
     "state of confusion": "soc",

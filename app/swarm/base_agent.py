@@ -465,6 +465,35 @@ class AgentToolbox:
 
     # ── Data Pipeline ─────────────────────────────────────────────────────
 
+    # ── TurboQuant Memory Bus ─────────────────────────────────────────────
+    # Run-scoped shared QJL semantic memory bus.
+    # Agents store findings → binary-index → other agents query before API calls.
+    # Set per-run by MasterOrchestrator.run(); reset to None after run ends.
+    _memory_bus: Optional["TurboQuantMemoryBus"] = None  # type: ignore[name-defined]
+
+    @property
+    def memory_bus(self):
+        """
+        Access the run-scoped TurboQuantMemoryBus.
+        Returns a no-op stub if no bus is active (outside of swarm runs).
+        """
+        if AgentToolbox._memory_bus is not None:
+            return AgentToolbox._memory_bus
+        # Outside a swarm run — return a safe no-op stub
+        from ..swarm.memory_bus import TurboQuantMemoryBus
+        return TurboQuantMemoryBus()  # ephemeral, not shared
+
+    @classmethod
+    def set_memory_bus(cls, bus) -> None:
+        """Called by MasterOrchestrator at the start of each run."""
+        cls._memory_bus = bus
+
+    @classmethod
+    def clear_memory_bus(cls) -> None:
+        """Called by MasterOrchestrator after a run completes."""
+        cls._memory_bus = None
+
+
     @property
     def data_pool(self):
         from ..data_pipeline.data_pool import get_data_pool
